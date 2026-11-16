@@ -1,0 +1,19 @@
+# Dependências e compilação
+node_modules
+dist
+extensions
+
+# Variáveis de ambiente e segredos
+.env
+.env.local
+.env.*.local
+
+# Netlify e logs
+.netlify
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Temporários
+scratch_book
+.vscode
