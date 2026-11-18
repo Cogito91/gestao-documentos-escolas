@@ -1488,8 +1488,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
                 'EJA 3ª Etapa B': { bg: 'bg-purple-800 text-white' },
                 'EJA 4ª Etapa A': { bg: 'bg-emerald-800 text-white' },
                 'EJA 4ª Etapa B': { bg: 'bg-teal-800 text-white' },
-                // EJA 1º Segmento (Anos Iniciais)
-                'EJA Módulo 1 (Alfabetização)': { bg: 'bg-pink-700 text-white' },
+                // EJA 1º Segmento
+                'EJA Módulo 1': { bg: 'bg-pink-700 text-white' },
                 'EJA Módulo 2': { bg: 'bg-rose-700 text-white' },
                 'EJA Módulo 3': { bg: 'bg-amber-700 text-white' },
               };

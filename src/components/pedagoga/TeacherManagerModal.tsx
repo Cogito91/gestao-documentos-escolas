@@ -312,71 +312,71 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
       label: '🌹 9º Ano C'
     },
 
-    // --- EJA 2º Segmento (Anos Finais / Noturno - Semed Manaus) ---
+    // --- EJA 2º Segmento (Noturno - Semed Manaus) ---
     'EJA 1ª Etapa A': {
       bg: 'bg-indigo-600 hover:bg-indigo-700 text-white',
       badge: 'bg-indigo-100 text-indigo-950 font-bold',
       pill: 'bg-indigo-50 text-indigo-900 border-indigo-400',
       dot: 'bg-indigo-500',
-      label: '🌙 EJA 1ª Etapa A (6º)'
+      label: '🌙 EJA 1ª Etapa A'
     },
     'EJA 1ª Etapa B': {
       bg: 'bg-indigo-700 hover:bg-indigo-800 text-white',
       badge: 'bg-indigo-100 text-indigo-950 font-bold',
       pill: 'bg-indigo-50 text-indigo-900 border-indigo-500',
       dot: 'bg-indigo-600',
-      label: '🌙 EJA 1ª Etapa B (6º)'
+      label: '🌙 EJA 1ª Etapa B'
     },
     'EJA 2ª Etapa A': {
       bg: 'bg-blue-700 hover:bg-blue-800 text-white',
       badge: 'bg-blue-100 text-blue-950 font-bold',
       pill: 'bg-blue-50 text-blue-900 border-blue-400',
       dot: 'bg-blue-600',
-      label: '🌙 EJA 2ª Etapa A (7º)'
+      label: '🌙 EJA 2ª Etapa A'
     },
     'EJA 2ª Etapa B': {
       bg: 'bg-sky-800 hover:bg-sky-900 text-white',
       badge: 'bg-sky-100 text-sky-950 font-bold',
       pill: 'bg-sky-50 text-sky-900 border-sky-500',
       dot: 'bg-sky-700',
-      label: '🌙 EJA 2ª Etapa B (7º)'
+      label: '🌙 EJA 2ª Etapa B'
     },
     'EJA 3ª Etapa A': {
       bg: 'bg-violet-700 hover:bg-violet-800 text-white',
       badge: 'bg-violet-100 text-violet-950 font-bold',
       pill: 'bg-violet-50 text-violet-900 border-violet-400',
       dot: 'bg-violet-600',
-      label: '🌙 EJA 3ª Etapa A (8º)'
+      label: '🌙 EJA 3ª Etapa A'
     },
     'EJA 3ª Etapa B': {
       bg: 'bg-purple-800 hover:bg-purple-900 text-white',
       badge: 'bg-purple-100 text-purple-950 font-bold',
       pill: 'bg-purple-50 text-purple-900 border-purple-500',
       dot: 'bg-purple-700',
-      label: '🌙 EJA 3ª Etapa B (8º)'
+      label: '🌙 EJA 3ª Etapa B'
     },
     'EJA 4ª Etapa A': {
       bg: 'bg-emerald-800 hover:bg-emerald-900 text-white',
       badge: 'bg-emerald-100 text-emerald-950 font-bold',
       pill: 'bg-emerald-50 text-emerald-900 border-emerald-500',
       dot: 'bg-emerald-700',
-      label: '🌙 EJA 4ª Etapa A (9º)'
+      label: '🌙 EJA 4ª Etapa A'
     },
     'EJA 4ª Etapa B': {
       bg: 'bg-teal-800 hover:bg-teal-900 text-white',
       badge: 'bg-teal-100 text-teal-950 font-bold',
       pill: 'bg-teal-50 text-teal-900 border-teal-500',
       dot: 'bg-teal-700',
-      label: '🌙 EJA 4ª Etapa B (9º)'
+      label: '🌙 EJA 4ª Etapa B'
     },
 
-    // --- EJA 1º Segmento (Anos Iniciais / Alfabetização Semed Manaus) ---
-    'EJA Módulo 1 (Alfabetização)': {
+    // --- EJA 1º Segmento (Semed Manaus) ---
+    'EJA Módulo 1': {
       bg: 'bg-pink-700 hover:bg-pink-800 text-white',
       badge: 'bg-pink-100 text-pink-950 font-bold',
       pill: 'bg-pink-50 text-pink-900 border-pink-400',
       dot: 'bg-pink-600',
-      label: '📖 EJA Mód. 1 (Alfa)'
+      label: '📖 EJA Módulo 1'
     },
     'EJA Módulo 2': {
       bg: 'bg-rose-700 hover:bg-rose-800 text-white',
@@ -842,20 +842,20 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                       >
                         {activeShiftTab === 'Noite' ? (
                           <>
-                            <optgroup label="EJA 2º Segmento (Anos Finais)">
-                              <option value="EJA 1ª Etapa A">EJA 1ª Etapa A (6º)</option>
-                              <option value="EJA 1ª Etapa B">EJA 1ª Etapa B (6º)</option>
-                              <option value="EJA 2ª Etapa A">EJA 2ª Etapa A (7º)</option>
-                              <option value="EJA 2ª Etapa B">EJA 2ª Etapa B (7º)</option>
-                              <option value="EJA 3ª Etapa A">EJA 3ª Etapa A (8º)</option>
-                              <option value="EJA 3ª Etapa B">EJA 3ª Etapa B (8º)</option>
-                              <option value="EJA 4ª Etapa A">EJA 4ª Etapa A (9º)</option>
-                              <option value="EJA 4ª Etapa B">EJA 4ª Etapa B (9º)</option>
+                            <optgroup label="EJA 2º Segmento (Noturno)">
+                              <option value="EJA 1ª Etapa A">EJA 1ª Etapa A</option>
+                              <option value="EJA 1ª Etapa B">EJA 1ª Etapa B</option>
+                              <option value="EJA 2ª Etapa A">EJA 2ª Etapa A</option>
+                              <option value="EJA 2ª Etapa B">EJA 2ª Etapa B</option>
+                              <option value="EJA 3ª Etapa A">EJA 3ª Etapa A</option>
+                              <option value="EJA 3ª Etapa B">EJA 3ª Etapa B</option>
+                              <option value="EJA 4ª Etapa A">EJA 4ª Etapa A</option>
+                              <option value="EJA 4ª Etapa B">EJA 4ª Etapa B</option>
                             </optgroup>
-                            <optgroup label="EJA 1º Segmento (Anos Iniciais / Alfabetização)">
-                              <option value="EJA Módulo 1 (Alfabetização)">EJA Módulo 1 (Alfabetização)</option>
-                              <option value="EJA Módulo 2">EJA Módulo 2 (2º/3º)</option>
-                              <option value="EJA Módulo 3">EJA Módulo 3 (4º/5º)</option>
+                            <optgroup label="EJA 1º Segmento">
+                              <option value="EJA Módulo 1">EJA Módulo 1</option>
+                              <option value="EJA Módulo 2">EJA Módulo 2</option>
+                              <option value="EJA Módulo 3">EJA Módulo 3</option>
                             </optgroup>
                             <optgroup label="Outras Turmas Regular">
                               {Object.entries(CLASS_COLORS_MAP)

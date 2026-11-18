@@ -218,19 +218,13 @@ const TIPO_COLETA_STYLES: Record<string, { bg: string; text: string; border: str
   },
 };
 
-// Opções de Anos / Etapas (Inclui Regular e EJA Semed Manaus)
+// Opções de Anos do Ensino Fundamental (Anos Finais)
 const anosOptions = [
-  { label: 'Todos os Anos / Etapas', value: 'all' },
-  { label: '6º ANO (EJA 1ª Etapa / 5ª Fase)', value: '6 ANO' },
-  { label: '7º ANO (EJA 2ª Etapa / 6ª Fase)', value: '7 ANO' },
-  { label: '8º ANO (EJA 3ª Etapa / 7ª Fase)', value: '8 ANO' },
-  { label: '9º ANO (EJA 4ª Etapa / 8ª Fase)', value: '9 ANO' },
-  { label: '--- 1º Segmento EJA / Iniciais ---', value: 'sep1', disabled: true },
-  { label: '1º ANO (EJA Alfabetização)', value: '1 ANO' },
-  { label: '2º ANO (EJA 1º Segmento)', value: '2 ANO' },
-  { label: '3º ANO (EJA 1º Segmento)', value: '3 ANO' },
-  { label: '4º ANO (EJA 1º Segmento)', value: '4 ANO' },
-  { label: '5º ANO (EJA 1º Segmento)', value: '5 ANO' },
+  { label: 'Todos os Anos (6º ao 9º)', value: 'all' },
+  { label: '6º ANO', value: '6 ANO' },
+  { label: '7º ANO', value: '7 ANO' },
+  { label: '8º ANO', value: '8 ANO' },
+  { label: '9º ANO', value: '9 ANO' },
 ];
 
 const bimestresOptions = [
@@ -1435,20 +1429,20 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
                         <option value="9º Ano B">9º Ano B</option>
                         <option value="9º Ano C">9º Ano C</option>
                       </optgroup>
-                      <optgroup label="EJA 2º Segmento (Anos Finais / Noturno)">
-                        <option value="EJA 1ª Etapa A">EJA 1ª Etapa A (6º)</option>
-                        <option value="EJA 1ª Etapa B">EJA 1ª Etapa B (6º)</option>
-                        <option value="EJA 2ª Etapa A">EJA 2ª Etapa A (7º)</option>
-                        <option value="EJA 2ª Etapa B">EJA 2ª Etapa B (7º)</option>
-                        <option value="EJA 3ª Etapa A">EJA 3ª Etapa A (8º)</option>
-                        <option value="EJA 3ª Etapa B">EJA 3ª Etapa B (8º)</option>
-                        <option value="EJA 4ª Etapa A">EJA 4ª Etapa A (9º)</option>
-                        <option value="EJA 4ª Etapa B">EJA 4ª Etapa B (9º)</option>
+                      <optgroup label="EJA 2º Segmento (Noturno)">
+                        <option value="EJA 1ª Etapa A">EJA 1ª Etapa A</option>
+                        <option value="EJA 1ª Etapa B">EJA 1ª Etapa B</option>
+                        <option value="EJA 2ª Etapa A">EJA 2ª Etapa A</option>
+                        <option value="EJA 2ª Etapa B">EJA 2ª Etapa B</option>
+                        <option value="EJA 3ª Etapa A">EJA 3ª Etapa A</option>
+                        <option value="EJA 3ª Etapa B">EJA 3ª Etapa B</option>
+                        <option value="EJA 4ª Etapa A">EJA 4ª Etapa A</option>
+                        <option value="EJA 4ª Etapa B">EJA 4ª Etapa B</option>
                       </optgroup>
-                      <optgroup label="EJA 1º Segmento (Anos Iniciais / Alfabetização)">
-                        <option value="EJA Módulo 1 (Alfabetização)">EJA Módulo 1 (Alfabetização)</option>
-                        <option value="EJA Módulo 2">EJA Módulo 2 (2º/3º)</option>
-                        <option value="EJA Módulo 3">EJA Módulo 3 (4º/5º)</option>
+                      <optgroup label="EJA 1º Segmento">
+                        <option value="EJA Módulo 1">EJA Módulo 1</option>
+                        <option value="EJA Módulo 2">EJA Módulo 2</option>
+                        <option value="EJA Módulo 3">EJA Módulo 3</option>
                       </optgroup>
                     </select>
                   </div>
@@ -1606,20 +1600,20 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
                         <option value="9º Ano B">9º Ano B</option>
                         <option value="9º Ano C">9º Ano C</option>
                       </optgroup>
-                      <optgroup label="EJA 2º Segmento (Anos Finais / Noturno)">
-                        <option value="EJA 1ª Etapa A">EJA 1ª Etapa A (6º)</option>
-                        <option value="EJA 1ª Etapa B">EJA 1ª Etapa B (6º)</option>
-                        <option value="EJA 2ª Etapa A">EJA 2ª Etapa A (7º)</option>
-                        <option value="EJA 2ª Etapa B">EJA 2ª Etapa B (7º)</option>
-                        <option value="EJA 3ª Etapa A">EJA 3ª Etapa A (8º)</option>
-                        <option value="EJA 3ª Etapa B">EJA 3ª Etapa B (8º)</option>
-                        <option value="EJA 4ª Etapa A">EJA 4ª Etapa A (9º)</option>
-                        <option value="EJA 4ª Etapa B">EJA 4ª Etapa B (9º)</option>
+                      <optgroup label="EJA 2º Segmento (Noturno)">
+                        <option value="EJA 1ª Etapa A">EJA 1ª Etapa A</option>
+                        <option value="EJA 1ª Etapa B">EJA 1ª Etapa B</option>
+                        <option value="EJA 2ª Etapa A">EJA 2ª Etapa A</option>
+                        <option value="EJA 2ª Etapa B">EJA 2ª Etapa B</option>
+                        <option value="EJA 3ª Etapa A">EJA 3ª Etapa A</option>
+                        <option value="EJA 3ª Etapa B">EJA 3ª Etapa B</option>
+                        <option value="EJA 4ª Etapa A">EJA 4ª Etapa A</option>
+                        <option value="EJA 4ª Etapa B">EJA 4ª Etapa B</option>
                       </optgroup>
-                      <optgroup label="EJA 1º Segmento (Anos Iniciais / Alfabetização)">
-                        <option value="EJA Módulo 1 (Alfabetização)">EJA Módulo 1 (Alfabetização)</option>
-                        <option value="EJA Módulo 2">EJA Módulo 2 (2º/3º)</option>
-                        <option value="EJA Módulo 3">EJA Módulo 3 (4º/5º)</option>
+                      <optgroup label="EJA 1º Segmento">
+                        <option value="EJA Módulo 1">EJA Módulo 1</option>
+                        <option value="EJA Módulo 2">EJA Módulo 2</option>
+                        <option value="EJA Módulo 3">EJA Módulo 3</option>
                       </optgroup>
                     </select>
                   </div>
