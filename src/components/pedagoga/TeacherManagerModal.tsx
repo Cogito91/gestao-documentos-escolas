@@ -224,8 +224,9 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
 
   const currentPeriods = SHIFT_PERIODS[activeShiftTab] || SHIFT_PERIODS['Manhã'];
 
-  // Cores personalizadas e exclusivas para CADA TURMA individual (12 cores distintas)
+  // Cores personalizadas e exclusivas para CADA TURMA (Regular Diurno + Todas as Etapas da EJA Semed)
   const CLASS_COLORS_MAP: Record<string, { bg: string; badge: string; pill: string; dot: string; label: string }> = {
+    // --- Ensino Regular (6º ao 9º) ---
     '6º Ano A': {
       bg: 'bg-emerald-600 hover:bg-emerald-700 text-white',
       badge: 'bg-emerald-100 text-emerald-950 font-bold',
@@ -309,6 +310,87 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
       pill: 'bg-rose-50 text-rose-900 border-rose-400',
       dot: 'bg-rose-500',
       label: '🌹 9º Ano C'
+    },
+
+    // --- EJA 2º Segmento (Anos Finais / Noturno - Semed Manaus) ---
+    'EJA 1ª Etapa A': {
+      bg: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+      badge: 'bg-indigo-100 text-indigo-950 font-bold',
+      pill: 'bg-indigo-50 text-indigo-900 border-indigo-400',
+      dot: 'bg-indigo-500',
+      label: '🌙 EJA 1ª Etapa A (6º)'
+    },
+    'EJA 1ª Etapa B': {
+      bg: 'bg-indigo-700 hover:bg-indigo-800 text-white',
+      badge: 'bg-indigo-100 text-indigo-950 font-bold',
+      pill: 'bg-indigo-50 text-indigo-900 border-indigo-500',
+      dot: 'bg-indigo-600',
+      label: '🌙 EJA 1ª Etapa B (6º)'
+    },
+    'EJA 2ª Etapa A': {
+      bg: 'bg-blue-700 hover:bg-blue-800 text-white',
+      badge: 'bg-blue-100 text-blue-950 font-bold',
+      pill: 'bg-blue-50 text-blue-900 border-blue-400',
+      dot: 'bg-blue-600',
+      label: '🌙 EJA 2ª Etapa A (7º)'
+    },
+    'EJA 2ª Etapa B': {
+      bg: 'bg-sky-800 hover:bg-sky-900 text-white',
+      badge: 'bg-sky-100 text-sky-950 font-bold',
+      pill: 'bg-sky-50 text-sky-900 border-sky-500',
+      dot: 'bg-sky-700',
+      label: '🌙 EJA 2ª Etapa B (7º)'
+    },
+    'EJA 3ª Etapa A': {
+      bg: 'bg-violet-700 hover:bg-violet-800 text-white',
+      badge: 'bg-violet-100 text-violet-950 font-bold',
+      pill: 'bg-violet-50 text-violet-900 border-violet-400',
+      dot: 'bg-violet-600',
+      label: '🌙 EJA 3ª Etapa A (8º)'
+    },
+    'EJA 3ª Etapa B': {
+      bg: 'bg-purple-800 hover:bg-purple-900 text-white',
+      badge: 'bg-purple-100 text-purple-950 font-bold',
+      pill: 'bg-purple-50 text-purple-900 border-purple-500',
+      dot: 'bg-purple-700',
+      label: '🌙 EJA 3ª Etapa B (8º)'
+    },
+    'EJA 4ª Etapa A': {
+      bg: 'bg-emerald-800 hover:bg-emerald-900 text-white',
+      badge: 'bg-emerald-100 text-emerald-950 font-bold',
+      pill: 'bg-emerald-50 text-emerald-900 border-emerald-500',
+      dot: 'bg-emerald-700',
+      label: '🌙 EJA 4ª Etapa A (9º)'
+    },
+    'EJA 4ª Etapa B': {
+      bg: 'bg-teal-800 hover:bg-teal-900 text-white',
+      badge: 'bg-teal-100 text-teal-950 font-bold',
+      pill: 'bg-teal-50 text-teal-900 border-teal-500',
+      dot: 'bg-teal-700',
+      label: '🌙 EJA 4ª Etapa B (9º)'
+    },
+
+    // --- EJA 1º Segmento (Anos Iniciais / Alfabetização Semed Manaus) ---
+    'EJA Módulo 1 (Alfabetização)': {
+      bg: 'bg-pink-700 hover:bg-pink-800 text-white',
+      badge: 'bg-pink-100 text-pink-950 font-bold',
+      pill: 'bg-pink-50 text-pink-900 border-pink-400',
+      dot: 'bg-pink-600',
+      label: '📖 EJA Mód. 1 (Alfa)'
+    },
+    'EJA Módulo 2': {
+      bg: 'bg-rose-700 hover:bg-rose-800 text-white',
+      badge: 'bg-rose-100 text-rose-950 font-bold',
+      pill: 'bg-rose-50 text-rose-900 border-rose-400',
+      dot: 'bg-rose-600',
+      label: '📖 EJA Módulo 2'
+    },
+    'EJA Módulo 3': {
+      bg: 'bg-amber-700 hover:bg-amber-800 text-white',
+      badge: 'bg-amber-100 text-amber-950 font-bold',
+      pill: 'bg-amber-50 text-amber-900 border-amber-500',
+      dot: 'bg-amber-700',
+      label: '📖 EJA Módulo 3'
     },
   };
 
@@ -716,49 +798,113 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                     </p>
                   </div>
 
-                  {/* SELEÇÃO DO TURNO (MENU DROPDOWN) */}
+                  {/* SELEÇÃO DO TURNO E DA TURMA (SELETOR COMPLETO REGULAR E EJA) */}
                   <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                         <Calendar className="w-4 h-4 text-indigo-600" />
-                        <span>Selecione o Turno do Quadro:</span>
+                        <span>Turno do Quadro:</span>
                       </span>
                       <select
                         value={activeShiftTab}
-                        onChange={(e) => setActiveShiftTab(e.target.value)}
+                        onChange={(e) => {
+                          const newShift = e.target.value;
+                          setActiveShiftTab(newShift);
+                          // Se mudar para a Noite e a turma atual for diurna, sugere a 1ª Etapa da EJA
+                          if (newShift === 'Noite' && !selectedTurmaForGrid.startsWith('EJA')) {
+                            setSelectedTurmaForGrid('EJA 1ª Etapa A');
+                          } else if (newShift !== 'Noite' && selectedTurmaForGrid.startsWith('EJA')) {
+                            setSelectedTurmaForGrid('6º Ano A');
+                          }
+                        }}
                         className="px-3 py-1.5 text-xs font-black border-2 border-indigo-400 rounded-lg bg-white text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs cursor-pointer"
                       >
                         {(() => {
                           const baseShifts = ['Manhã', 'Tarde', 'Noite', 'Integral'];
                           const teacherShifts = editShifts.length > 0 ? editShifts : baseShifts;
-                          // se o professor tem turnos cadastrados, exibe os dele, senão lista os turnos padrão
                           const displayShifts = Array.from(new Set([...teacherShifts, ...baseShifts]));
                           return displayShifts.map(sh => (
                             <option key={sh} value={sh}>
-                              {sh === 'Manhã' ? '☀️ Manhã (07:30 - 11:30)' : sh === 'Tarde' ? '🌤️ Tarde (13:00 - 17:00)' : sh === 'Noite' ? '🌙 Noite (18:30 - 22:20)' : '⚡ Integral'}
+                              {sh === 'Manhã' ? '☀️ Manhã (07:30 - 11:30)' : sh === 'Tarde' ? '🌤️ Tarde (13:00 - 17:00)' : sh === 'Noite' ? '🌙 Noite (EJA 18:30 - 22:20)' : '⚡ Integral'}
                             </option>
                           ));
                         })()}
                       </select>
                     </div>
+
+                    {/* SELETOR RÁPIDO DA TURMA PARA LANÇAR NO QUADRO */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-700">Turma ativa p/ preencher:</span>
+                      <select
+                        value={selectedTurmaForGrid}
+                        onChange={(e) => setSelectedTurmaForGrid(e.target.value)}
+                        className={`px-3 py-1.5 text-xs font-black border rounded-lg focus:outline-none transition-colors ${getClassColorStyle(selectedTurmaForGrid).pill}`}
+                      >
+                        {activeShiftTab === 'Noite' ? (
+                          <>
+                            <optgroup label="EJA 2º Segmento (Anos Finais)">
+                              <option value="EJA 1ª Etapa A">EJA 1ª Etapa A (6º)</option>
+                              <option value="EJA 1ª Etapa B">EJA 1ª Etapa B (6º)</option>
+                              <option value="EJA 2ª Etapa A">EJA 2ª Etapa A (7º)</option>
+                              <option value="EJA 2ª Etapa B">EJA 2ª Etapa B (7º)</option>
+                              <option value="EJA 3ª Etapa A">EJA 3ª Etapa A (8º)</option>
+                              <option value="EJA 3ª Etapa B">EJA 3ª Etapa B (8º)</option>
+                              <option value="EJA 4ª Etapa A">EJA 4ª Etapa A (9º)</option>
+                              <option value="EJA 4ª Etapa B">EJA 4ª Etapa B (9º)</option>
+                            </optgroup>
+                            <optgroup label="EJA 1º Segmento (Anos Iniciais / Alfabetização)">
+                              <option value="EJA Módulo 1 (Alfabetização)">EJA Módulo 1 (Alfabetização)</option>
+                              <option value="EJA Módulo 2">EJA Módulo 2 (2º/3º)</option>
+                              <option value="EJA Módulo 3">EJA Módulo 3 (4º/5º)</option>
+                            </optgroup>
+                            <optgroup label="Outras Turmas Regular">
+                              {Object.entries(CLASS_COLORS_MAP)
+                                .filter(([name]) => !name.startsWith('EJA'))
+                                .map(([name, info]) => (
+                                  <option key={name} value={name}>{info.label}</option>
+                                ))}
+                            </optgroup>
+                          </>
+                        ) : (
+                          <>
+                            <optgroup label="Ensino Regular (Diurno)">
+                              {Object.entries(CLASS_COLORS_MAP)
+                                .filter(([name]) => !name.startsWith('EJA'))
+                                .map(([name, info]) => (
+                                  <option key={name} value={name}>{info.label}</option>
+                                ))}
+                            </optgroup>
+                            <optgroup label="Opções EJA Semed Manaus">
+                              {Object.entries(CLASS_COLORS_MAP)
+                                .filter(([name]) => name.startsWith('EJA'))
+                                .map(([name, info]) => (
+                                  <option key={name} value={name}>{info.label}</option>
+                                ))}
+                            </optgroup>
+                          </>
+                        )}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* Legenda de Cores Exclusivas por Turma */}
+                  {/* Legenda de Cores das Turmas do Turno */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-600">
-                    <span className="font-bold text-slate-700 mr-1">Legenda:</span>
-                    {Object.entries(CLASS_COLORS_MAP).map(([cName, info]) => (
-                      <span
-                        key={cName}
-                        onClick={() => setSelectedTurmaForGrid(cName)}
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer border text-[10px] font-bold transition-all hover:scale-105 ${
-                          selectedTurmaForGrid === cName ? 'ring-2 ring-indigo-500 shadow-xs' : ''
-                        } ${info.pill}`}
-                        title={`Clique para selecionar ${cName}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${info.dot}`}></span>
-                        {cName}
-                      </span>
-                    ))}
+                    <span className="font-bold text-slate-700 mr-1">Legenda ({activeShiftTab === 'Noite' ? 'EJA' : 'Regular'}):</span>
+                    {Object.entries(CLASS_COLORS_MAP)
+                      .filter(([cName]) => activeShiftTab === 'Noite' ? cName.startsWith('EJA') : !cName.startsWith('EJA'))
+                      .map(([cName, info]) => (
+                        <span
+                          key={cName}
+                          onClick={() => setSelectedTurmaForGrid(cName)}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer border text-[10px] font-bold transition-all hover:scale-105 ${
+                            selectedTurmaForGrid === cName ? 'ring-2 ring-indigo-500 shadow-xs scale-105' : ''
+                          } ${info.pill}`}
+                          title={`Clique para selecionar ${cName}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${info.dot}`}></span>
+                          {cName}
+                        </span>
+                      ))}
                   </div>
 
                   {/* Grade Interativa dos 5 Tempos do Turno Atual */}

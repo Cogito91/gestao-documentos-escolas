@@ -1466,6 +1466,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
               };
 
               const CLASS_COLORS_MAP: Record<string, { bg: string }> = {
+                // Regular Diurno
                 '6º Ano A': { bg: 'bg-emerald-600 text-white' },
                 '6º Ano B': { bg: 'bg-teal-600 text-white' },
                 '6º Ano C': { bg: 'bg-green-700 text-white' },
@@ -1478,6 +1479,19 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
                 '9º Ano A': { bg: 'bg-purple-600 text-white' },
                 '9º Ano B': { bg: 'bg-fuchsia-600 text-white' },
                 '9º Ano C': { bg: 'bg-rose-600 text-white' },
+                // EJA 2º Segmento (Noturno)
+                'EJA 1ª Etapa A': { bg: 'bg-indigo-600 text-white' },
+                'EJA 1ª Etapa B': { bg: 'bg-indigo-700 text-white' },
+                'EJA 2ª Etapa A': { bg: 'bg-blue-700 text-white' },
+                'EJA 2ª Etapa B': { bg: 'bg-sky-800 text-white' },
+                'EJA 3ª Etapa A': { bg: 'bg-violet-700 text-white' },
+                'EJA 3ª Etapa B': { bg: 'bg-purple-800 text-white' },
+                'EJA 4ª Etapa A': { bg: 'bg-emerald-800 text-white' },
+                'EJA 4ª Etapa B': { bg: 'bg-teal-800 text-white' },
+                // EJA 1º Segmento (Anos Iniciais)
+                'EJA Módulo 1 (Alfabetização)': { bg: 'bg-pink-700 text-white' },
+                'EJA Módulo 2': { bg: 'bg-rose-700 text-white' },
+                'EJA Módulo 3': { bg: 'bg-amber-700 text-white' },
               };
 
               const currentShiftPeriods = SHIFT_PERIODS[selectedScheduleShift] || SHIFT_PERIODS['Manhã'];

@@ -14,8 +14,11 @@ export interface MatrixItem {
   habilidade: string;
 }
 
-// A escola atende exclusivamente do 6º ao 9º ano (Ensino Fundamental Anos Finais)
-const VALID_ANOS = new Set(['6 ANO', '7 ANO', '8 ANO', '9 ANO']);
+// A escola atende do 6º ao 9º ano (Ensino Fundamental Anos Finais) e também o 1º ao 5º ano se aplicável
+const VALID_ANOS = new Set([
+  '1 ANO', '2 ANO', '3 ANO', '4 ANO', '5 ANO', // EJA 1º Segmento / Anos Iniciais
+  '6 ANO', '7 ANO', '8 ANO', '9 ANO',           // Ensino Fundamental Regular & EJA 2º Segmento
+]);
 
 const rawData = curriculumJson as unknown as Record<string, MatrixItem[]>;
 
