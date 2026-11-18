@@ -818,6 +818,11 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
                       <div>
                         <h4 className="font-bold text-slate-800 text-sm">{teacher.full_name}</h4>
                         <p className="text-xs text-slate-500">{teacher.discipline || 'Professor Regente'}</p>
+                        {teacher.email && (
+                          <p className="text-[11px] font-semibold text-indigo-600 mt-0.5 break-all select-all flex items-center gap-1" title="Email de login do professor">
+                            <span>✉ {teacher.email}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                     {teacher.shift && (

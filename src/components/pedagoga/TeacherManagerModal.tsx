@@ -712,7 +712,7 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Nome do Docente:</label>
                       <select
@@ -729,6 +729,13 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                           </option>
                         ))}
                       </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-0.5">E-mail de Login:</label>
+                      <div className="w-full px-2.5 py-1.5 text-xs bg-slate-100 border border-slate-200 rounded-lg font-semibold text-indigo-700 truncate select-all" title={selectedTeacher.email}>
+                        {selectedTeacher.email || 'Não informado'}
+                      </div>
                     </div>
 
                     <div>
