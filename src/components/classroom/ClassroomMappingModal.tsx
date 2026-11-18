@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Grid,
@@ -19,20 +19,17 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  Sliders,
-  Maximize2,
   DoorOpen,
   Monitor,
   Briefcase,
   Compass,
+  GripHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import {
   classroomService,
   ClassRegentsConfig,
   ClassroomLayout,
-  BoardPosition,
-  TeacherDeskPosition,
-  DoorPosition,
   DeskFacing,
 } from '../../services/classroomService';
 import { Profile } from '../../types/database.types';
@@ -64,6 +61,11 @@ const AVAILABLE_CLASSES = [
   'EJA 4ª Etapa A',
 ];
 
+interface CoordPos {
+  x: number; // porcentagem (0 a 100)
+  y: number; // porcentagem (0 a 100)
+}
+
 export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   isOpen,
   onClose,
@@ -80,11 +82,24 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   // Controle de colapso do menu superior para maximizar área de trabalho
   const [isMenuCollapsed, setIsMenuCollapsed] = useState(false);
-  // Controle de abertura da barra de personalização física (quadro, porta, mesa, orientação)
-  const [showLayoutSettings, setShowLayoutSettings] = useState(false);
 
   // Pedagoga: seleção de regente para atribuir
   const [regentTeacherId, setRegentTeacherId] = useState<string>('');
+
+  // Container de drag and drop
+  const roomAreaRef = useRef<HTMLDivElement>(null);
+  const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
+
+  // Posições percentuais dos elementos arrastáveis (drag & drop)
+  const [positions, setPositions] = useState<{
+    board: CoordPos;
+    teacherDesk: CoordPos;
+    door: CoordPos;
+  }>({
+    board: { x: 50, y: 4 },
+    teacherDesk: { x: 86, y: 8 },
+    door: { x: 8, y: 6 },
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -97,6 +112,30 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setConfig(data);
   };
 
+  // Carrega posições personalizadas salvas quando muda a turma
+  useEffect(() => {
+    const layout = config.layouts[selectedClass];
+    // Recupera se houver posições em seats com chaves especiais ou valores padrão
+    if (layout?.seats) {
+      try {
+        const rawCoords = layout.seats['__ELEMENT_COORDS__'];
+        if (rawCoords) {
+          const parsed = JSON.parse(rawCoords);
+          setPositions(parsed);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    // Fallback padrão se não tiver salvo
+    setPositions({
+      board: { x: 50, y: 5 },
+      teacherDesk: { x: 86, y: 10 },
+      door: { x: 9, y: 8 },
+    });
+  }, [selectedClass, config]);
+
   // Verifica se o usuário atual é o regente da turma selecionada
   const assignedRegent = config.regents[selectedClass];
   const isUserRegent = Boolean(
@@ -107,23 +146,16 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       currentUser.email?.toLowerCase().includes('walter'))
   );
 
-  // Permissão de alteração do mapa:
-  // Apenas o professor regente pode alterar carteiras (ou pedagoga em modo coordenação)
+  // Permissão de alteração do mapa
   const canEditLayout = isUserRegent || isPedagoga;
 
   const currentLayout: ClassroomLayout = config.layouts[selectedClass] || {
     rows: 5,
     cols: 6,
     seats: {},
-    boardPosition: 'top',
-    teacherDeskPosition: 'top-right',
-    doorPosition: 'top-left',
     deskFacing: 'up',
   };
 
-  const boardPosition: BoardPosition = currentLayout.boardPosition || 'top';
-  const teacherDeskPosition: TeacherDeskPosition = currentLayout.teacherDeskPosition || 'top-right';
-  const doorPosition: DoorPosition = currentLayout.doorPosition || 'top-left';
   const deskFacing: DeskFacing = currentLayout.deskFacing || 'up';
 
   const handleSeatClick = (r: number, c: number) => {
@@ -200,20 +232,99 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     showToast(`Matriz ajustada: ${newRows} fileiras × ${newCols} colunas.`);
   };
 
-  const handleUpdateLayoutProperty = async (patch: Partial<ClassroomLayout>) => {
+  const handleUpdateDeskFacing = async (facing: DeskFacing) => {
     if (!canEditLayout) {
-      alert('Apenas o professor regente tem permissão para reposicionar elementos ou alterar o direcionamento.');
+      alert('Apenas o professor regente pode alterar a direção das carteiras.');
       return;
     }
     setIsSaving(true);
     const updated = await classroomService.updateClassLayout(
       selectedClass,
-      patch,
+      { deskFacing: facing },
       currentUser?.full_name || 'Professor Regente'
     );
     setConfig(updated);
     setIsSaving(false);
-    showToast('Disposição da sala atualizada!');
+    showToast(`Carteiras direcionadas para: ${facing === 'up' ? 'Cima' : facing === 'down' ? 'Baixo' : facing === 'left' ? 'Esquerda' : 'Direita'}`);
+  };
+
+  // Salvar posições dos elementos arrastados (Drag and Drop)
+  const savePositionsToConfig = async (newPositions: typeof positions) => {
+    if (!canEditLayout) return;
+    const newSeats = {
+      ...currentLayout.seats,
+      '__ELEMENT_COORDS__': JSON.stringify(newPositions),
+    };
+    const updated = await classroomService.updateClassLayout(
+      selectedClass,
+      { seats: newSeats },
+      currentUser?.full_name || 'Professor Regente'
+    );
+    setConfig(updated);
+  };
+
+  // DRAG & DROP NATIVO / POINTER TOUCH HANDLERS
+  const startDrag = (item: 'board' | 'teacherDesk' | 'door', e: React.MouseEvent | React.TouchEvent) => {
+    if (!canEditLayout) return;
+    draggingItemRef.current = item;
+    window.addEventListener('mousemove', onDragging);
+    window.addEventListener('mouseup', stopDrag);
+    window.addEventListener('touchmove', onDraggingTouch, { passive: false });
+    window.addEventListener('touchend', stopDrag);
+  };
+
+  const updateCoordFromClient = (clientX: number, clientY: number) => {
+    if (!draggingItemRef.current || !roomAreaRef.current) return;
+    const rect = roomAreaRef.current.getBoundingClientRect();
+    const xClamped = Math.max(5, Math.min(95, ((clientX - rect.left) / rect.width) * 100));
+    const yClamped = Math.max(3, Math.min(96, ((clientY - rect.top) / rect.height) * 100));
+
+    setPositions((prev) => ({
+      ...prev,
+      [draggingItemRef.current!]: {
+        x: Math.round(xClamped),
+        y: Math.round(yClamped),
+      },
+    }));
+  };
+
+  const onDragging = (e: MouseEvent) => {
+    e.preventDefault();
+    updateCoordFromClient(e.clientX, e.clientY);
+  };
+
+  const onDraggingTouch = (e: TouchEvent) => {
+    if (e.touches.length > 0) {
+      updateCoordFromClient(e.touches[0].clientX, e.touches[0].clientY);
+    }
+  };
+
+  const stopDrag = () => {
+    if (draggingItemRef.current) {
+      draggingItemRef.current = null;
+      window.removeEventListener('mousemove', onDragging);
+      window.removeEventListener('mouseup', stopDrag);
+      window.removeEventListener('touchmove', onDraggingTouch);
+      window.removeEventListener('touchend', stopDrag);
+      // Persiste no Supabase / LocalStorage
+      setPositions((latest) => {
+        savePositionsToConfig(latest);
+        return latest;
+      });
+      showToast('Posição salva!');
+    }
+  };
+
+  const handleResetPositions = () => {
+    if (!canEditLayout) return;
+    const defaults = {
+      board: { x: 50, y: 5 },
+      teacherDesk: { x: 86, y: 10 },
+      door: { x: 9, y: 8 },
+    };
+    setPositions(defaults);
+    savePositionsToConfig(defaults);
+    showToast('Posições redefinidas para o padrão.');
   };
 
   const handleAssignRegent = async () => {
@@ -249,21 +360,24 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   };
 
   // Contadores
-  const occupiedSeatsCount = Object.keys(currentLayout.seats || {}).length;
+  const occupiedSeatsKeys = Object.keys(currentLayout.seats || {}).filter(
+    (k) => !k.startsWith('__')
+  );
+  const occupiedSeatsCount = occupiedSeatsKeys.length;
   const totalSeats = currentLayout.rows * currentLayout.cols;
 
   // Render do ícone de direção da carteira
   const renderFacingIcon = () => {
     switch (deskFacing) {
       case 'down':
-        return <ArrowDown className="w-2.5 h-2.5 text-indigo-400 inline" />;
+        return <ArrowDown className="w-2.5 h-2.5 text-indigo-500 inline" />;
       case 'left':
-        return <ArrowLeft className="w-2.5 h-2.5 text-indigo-400 inline" />;
+        return <ArrowLeft className="w-2.5 h-2.5 text-indigo-500 inline" />;
       case 'right':
-        return <ArrowRight className="w-2.5 h-2.5 text-indigo-400 inline" />;
+        return <ArrowRight className="w-2.5 h-2.5 text-indigo-500 inline" />;
       case 'up':
       default:
-        return <ArrowUp className="w-2.5 h-2.5 text-indigo-400 inline" />;
+        return <ArrowUp className="w-2.5 h-2.5 text-indigo-500 inline" />;
     }
   };
 
@@ -271,7 +385,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-5xl w-full max-h-[96vh] flex flex-col overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-6xl w-full max-h-[96vh] flex flex-col overflow-hidden border border-slate-200">
         
         {/* TOAST DE FEEDBACK */}
         {toastMsg && (
@@ -290,7 +404,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base leading-tight">
-                  Mapeamento de Sala & Carteiras
+                  Mapeamento de Sala (Drag & Drop)
                 </h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
                   {selectedClass}
@@ -351,8 +465,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         {/* ÁREA DE CONTROLES (COLAPSÁVEL) */}
         {!isMenuCollapsed && (
           <div className="bg-slate-50 border-b border-slate-200 transition-all shrink-0">
-            {/* LINHA 1: TURMA, REGENTE, DIMENSÕES E BOTÃO DE PERSONALIZAÇÃO */}
-            <div className="p-2.5 sm:px-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+            {/* LINHA DE TURMA, REGENTE, REDIMENSIONAMENTO E DROPDOWN DE DIREÇÃO */}
+            <div className="p-2 sm:px-4 flex flex-wrap items-center justify-between gap-2 text-xs">
               
               {/* Seletor de Turma */}
               <div className="flex items-center gap-1.5">
@@ -396,175 +510,91 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 )}
               </div>
 
-              {/* Matriz (Fileiras x Colunas) & Botão de Disposição */}
+              {/* Matriz (Fileiras x Colunas) */}
               {canEditLayout && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                    <span className="text-slate-600 text-[11px] font-bold">Grade:</span>
-                    <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
-                      {currentLayout.rows}F × {currentLayout.cols}C
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleResizeGrid(-1, 0)}
-                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                      title="Diminuir fileiras"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResizeGrid(1, 0)}
-                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                      title="Aumentar fileiras"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                    <span className="text-slate-300">|</span>
-                    <button
-                      type="button"
-                      onClick={() => handleResizeGrid(0, -1)}
-                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                      title="Diminuir colunas"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleResizeGrid(0, 1)}
-                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                      title="Aumentar colunas"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {/* Toggle para configurar Quadro, Porta, Mesa e Direcionamento */}
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                  <span className="text-slate-600 text-[11px] font-bold">Grade:</span>
+                  <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
+                    {currentLayout.rows}F × {currentLayout.cols}C
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setShowLayoutSettings(!showLayoutSettings)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition border shadow-xs ${
-                      showLayoutSettings
-                        ? 'bg-indigo-600 text-white border-indigo-700'
-                        : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
-                    }`}
+                    onClick={() => handleResizeGrid(-1, 0)}
+                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                    title="Diminuir fileiras"
                   >
-                    <Sliders className="w-3 h-3" />
-                    <span>Posicionar Sala</span>
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleResizeGrid(1, 0)}
+                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                    title="Aumentar fileiras"
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    type="button"
+                    onClick={() => handleResizeGrid(0, -1)}
+                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                    title="Diminuir colunas"
+                  >
+                    <Minus className="w-3 h-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleResizeGrid(0, 1)}
+                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                    title="Aumentar colunas"
+                  >
+                    <Plus className="w-3 h-3" />
                   </button>
                 </div>
               )}
 
+              {/* DROPDOWN DE DIREÇÃO DAS CARTEIRAS */}
+              {canEditLayout && (
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
+                  <Compass className="w-3.5 h-3.5 text-indigo-700" />
+                  <span className="font-bold text-slate-700 text-[11px]">Direção das Carteiras:</span>
+                  <select
+                    value={deskFacing}
+                    onChange={(e) => handleUpdateDeskFacing(e.target.value as DeskFacing)}
+                    className="px-2 py-0.5 text-xs font-black border border-slate-300 rounded-md bg-white text-indigo-900 cursor-pointer focus:ring-1 focus:ring-indigo-500"
+                  >
+                    <option value="up">Apontar p/ Cima (↑)</option>
+                    <option value="down">Apontar p/ Baixo (↓)</option>
+                    <option value="left">Apontar p/ Esquerda (←)</option>
+                    <option value="right">Apontar p/ Direita (→)</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Botão de resetar posições de drag and drop */}
+              {canEditLayout && (
+                <button
+                  type="button"
+                  onClick={handleResetPositions}
+                  className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg shadow-2xs"
+                  title="Restaurar posições originais do Quadro, Mesa e Porta"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Redefinir Posições</span>
+                </button>
+              )}
+
             </div>
 
-            {/* PAINEL DE DISPOSIÇÃO FÍSICA: QUADRO, PORTA, MESA DO PROFESSOR, DIRECIONAMENTO CARTEIRAS */}
-            {canEditLayout && showLayoutSettings && (
-              <div className="p-3 bg-gradient-to-r from-indigo-50 via-sky-50 to-slate-50 border-t border-indigo-100 flex flex-wrap items-center gap-4 text-xs animate-fadeIn">
-                
-                {/* 1. Direcionamento das Carteiras */}
-                <div className="flex items-center gap-1.5">
-                  <Compass className="w-3.5 h-3.5 text-indigo-700" />
-                  <span className="font-bold text-slate-700">Frente das Carteiras:</span>
-                  <div className="flex items-center bg-white rounded-lg border border-slate-300 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'up' })}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
-                        deskFacing === 'up' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                      title="Carteiras voltadas para Cima (Topo)"
-                    >
-                      <ArrowUp className="w-3 h-3" /> Cima
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'down' })}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
-                        deskFacing === 'down' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                      title="Carteiras voltadas para Baixo (Fundo)"
-                    >
-                      <ArrowDown className="w-3 h-3" /> Baixo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'left' })}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
-                        deskFacing === 'left' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                      title="Carteiras voltadas para a Esquerda"
-                    >
-                      <ArrowLeft className="w-3 h-3" /> Esq.
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'right' })}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
-                        deskFacing === 'right' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-                      }`}
-                      title="Carteiras voltadas para a Direita"
-                    >
-                      <ArrowRight className="w-3 h-3" /> Dir.
-                    </button>
-                  </div>
+            {/* BARRA DE DICA DE DRAG & DROP */}
+            {canEditLayout && (
+              <div className="px-4 py-1.5 bg-sky-50/80 border-t border-sky-100 flex items-center justify-between text-[11px] text-sky-900">
+                <div className="flex items-center gap-1.5 font-medium">
+                  <GripHorizontal className="w-3.5 h-3.5 text-sky-600" />
+                  <span>
+                    <strong>Arraste e solte livremente:</strong> segure e mova o <strong>Quadro</strong>, a <strong>Mesa do Professor</strong> e a <strong>Porta</strong> para qualquer lugar da sala.
+                  </span>
                 </div>
-
-                {/* 2. Posição da Lousa / Quadro */}
-                <div className="flex items-center gap-1.5">
-                  <Monitor className="w-3.5 h-3.5 text-slate-700" />
-                  <span className="font-bold text-slate-700">Quadro / Lousa:</span>
-                  <select
-                    value={boardPosition}
-                    onChange={(e) => handleUpdateLayoutProperty({ boardPosition: e.target.value as BoardPosition })}
-                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
-                  >
-                    <option value="top">Parede Superior (Topo)</option>
-                    <option value="bottom">Parede Inferior (Fundo)</option>
-                    <option value="left">Parede Esquerda</option>
-                    <option value="right">Parede Direita</option>
-                  </select>
-                </div>
-
-                {/* 3. Posição da Mesa do Professor */}
-                <div className="flex items-center gap-1.5">
-                  <Briefcase className="w-3.5 h-3.5 text-amber-700" />
-                  <span className="font-bold text-slate-700">Mesa do Professor:</span>
-                  <select
-                    value={teacherDeskPosition}
-                    onChange={(e) => handleUpdateLayoutProperty({ teacherDeskPosition: e.target.value as TeacherDeskPosition })}
-                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
-                  >
-                    <option value="top-right">Topo - Direita</option>
-                    <option value="top-left">Topo - Esquerda</option>
-                    <option value="top-center">Topo - Centro</option>
-                    <option value="bottom-right">Fundo - Direita</option>
-                    <option value="bottom-left">Fundo - Esquerda</option>
-                    <option value="bottom-center">Fundo - Centro</option>
-                    <option value="left-center">Lateral Esquerda</option>
-                    <option value="right-center">Lateral Direita</option>
-                  </select>
-                </div>
-
-                {/* 4. Posição da Porta */}
-                <div className="flex items-center gap-1.5">
-                  <DoorOpen className="w-3.5 h-3.5 text-emerald-700" />
-                  <span className="font-bold text-slate-700">Porta da Sala:</span>
-                  <select
-                    value={doorPosition}
-                    onChange={(e) => handleUpdateLayoutProperty({ doorPosition: e.target.value as DoorPosition })}
-                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
-                  >
-                    <option value="top-left">Topo - Esquerda</option>
-                    <option value="top-right">Topo - Direita</option>
-                    <option value="left-top">Lateral Esquerda - Superior</option>
-                    <option value="left-bottom">Lateral Esquerda - Inferior</option>
-                    <option value="right-top">Lateral Direita - Superior</option>
-                    <option value="right-bottom">Lateral Direita - Inferior</option>
-                    <option value="bottom-left">Fundo - Esquerda</option>
-                    <option value="bottom-right">Fundo - Direita</option>
-                  </select>
-                </div>
-
               </div>
             )}
 
@@ -616,90 +646,85 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* ÁREA PRINCIPAL DA SALA: PLANTA VISUAL COM QUADRO, PORTA, MESA E CARTEIRAS COMPACTAS */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-5 bg-slate-100/70 flex flex-col items-center justify-center min-h-[300px]">
+        {/* ÁREA PRINCIPAL DA SALA: DRAG AND DROP CANVAS PARA QUADRO, MESA, PORTA + CARTEIRAS */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 bg-slate-100/70 flex flex-col items-center justify-center min-h-[420px]">
           
-          {/* CONTAINER DA SALA COM BORDAS ILUSTRANDO AS PAREDES */}
-          <div className="relative bg-white/90 p-4 sm:p-6 rounded-3xl shadow-sm border-2 border-slate-300 max-w-full flex flex-col items-center">
-            
-            {/* PAREDE SUPERIOR (QUADRO OU PORTA OU MESA QUANDO NO TOPO) */}
-            <div className="w-full flex items-center justify-between gap-2 mb-3 pb-2 border-b-2 border-slate-200">
-              {/* Canto Esquerdo Topo (Porta ou Mesa) */}
-              <div className="flex items-center gap-1.5 min-w-[90px]">
-                {doorPosition === 'top-left' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <DoorOpen className="w-3 h-3" /> PORTA
-                  </span>
-                )}
-                {teacherDeskPosition === 'top-left' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROF.
-                  </span>
-                )}
-              </div>
-
-              {/* Centro Topo (Quadro ou Mesa) */}
-              <div className="flex-1 flex justify-center items-center gap-2">
-                {boardPosition === 'top' && (
-                  <div className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-extrabold text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-sm border border-slate-700">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>QUADRO / LOUSA</span>
-                  </div>
-                )}
-                {teacherDeskPosition === 'top-center' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROFESSOR
-                  </span>
-                )}
-              </div>
-
-              {/* Canto Direito Topo (Porta ou Mesa) */}
-              <div className="flex items-center justify-end gap-1.5 min-w-[90px]">
-                {doorPosition === 'top-right' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <DoorOpen className="w-3 h-3" /> PORTA
-                  </span>
-                )}
-                {teacherDeskPosition === 'top-right' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROF.
-                  </span>
-                )}
-              </div>
+          {/* CONTAINER DA SALA (CANVAS RELATIVO ONDE ELEMENTOS PODEM SER ARRASTADOS LIVREMENTE) */}
+          <div
+            ref={roomAreaRef}
+            className="relative bg-white/95 rounded-3xl shadow-md border-4 border-slate-300 w-full max-w-4xl p-6 sm:p-8 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px] select-none"
+            style={{ touchAction: 'none' }}
+          >
+            {/* ELEMENTO 1: QUADRO / LOUSA (DRAG & DROP) */}
+            <div
+              onMouseDown={(e) => startDrag('board', e)}
+              onTouchStart={(e) => startDrag('board', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.board.x}%`,
+                top: `${positions.board.y}%`,
+                transform: 'translate(-50%, -50%)',
+                cursor: canEditLayout ? 'grab' : 'default',
+              }}
+              className={`z-20 px-4 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg border-2 border-slate-600 transition-shadow ${
+                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-indigo-400' : ''
+              }`}
+              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro/Lousa' : 'Quadro da sala'}
+            >
+              {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 text-slate-400" />}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <Monitor className="w-3.5 h-3.5 text-sky-400" />
+              <span>QUADRO / LOUSA</span>
             </div>
 
-            {/* CORPO DA SALA COM LATERAIS (ESQUERDA + MATRIZ + DIREITA) */}
-            <div className="flex items-center gap-3 w-full justify-center">
-              
-              {/* PAREDE LATERAL ESQUERDA */}
-              <div className="flex flex-col items-center justify-between py-2 border-r-2 border-slate-200 pr-2 min-w-[75px] gap-2">
-                {doorPosition === 'left-top' && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
-                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
-                  </span>
-                )}
-                {boardPosition === 'left' && (
-                  <div className="py-3 px-1 rounded-lg bg-slate-800 text-white font-extrabold text-[10px] uppercase [writing-mode:vertical-lr] rotate-180 flex items-center gap-1 shadow-xs">
-                    QUADRO / LOUSA
-                  </div>
-                )}
-                {teacherDeskPosition === 'left-center' && (
-                  <span className="px-1.5 py-1 rounded bg-amber-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5 [writing-mode:vertical-lr]">
-                    MESA PROF
-                  </span>
-                )}
-                {doorPosition === 'left-bottom' && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
-                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
-                  </span>
-                )}
-              </div>
+            {/* ELEMENTO 2: MESA DO PROFESSOR (DRAG & DROP) */}
+            <div
+              onMouseDown={(e) => startDrag('teacherDesk', e)}
+              onTouchStart={(e) => startDrag('teacherDesk', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.teacherDesk.x}%`,
+                top: `${positions.teacherDesk.y}%`,
+                transform: 'translate(-50%, -50%)',
+                cursor: canEditLayout ? 'grab' : 'default',
+              }}
+              className={`z-20 px-3 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg border-2 border-amber-400 transition-shadow ${
+                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-amber-300' : ''
+              }`}
+              title={canEditLayout ? 'Clique e arraste para posicionar a Mesa do Professor' : 'Mesa do Professor'}
+            >
+              {canEditLayout && <GripHorizontal className="w-3 h-3 text-amber-200" />}
+              <Briefcase className="w-3.5 h-3.5 text-white" />
+              <span>MESA PROFESSOR</span>
+            </div>
 
-              {/* GRADE DE CARTEIRAS COMPACTAS (Reduzidas para caber perfeitamente na tela) */}
+            {/* ELEMENTO 3: PORTA DA SALA (DRAG & DROP) */}
+            <div
+              onMouseDown={(e) => startDrag('door', e)}
+              onTouchStart={(e) => startDrag('door', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.door.x}%`,
+                top: `${positions.door.y}%`,
+                transform: 'translate(-50%, -50%)',
+                cursor: canEditLayout ? 'grab' : 'default',
+              }}
+              className={`z-20 px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg border-2 border-emerald-400 transition-shadow ${
+                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-emerald-300' : ''
+              }`}
+              title={canEditLayout ? 'Clique e arraste para posicionar a Porta da Sala' : 'Porta de entrada'}
+            >
+              {canEditLayout && <GripHorizontal className="w-3 h-3 text-emerald-200" />}
+              <DoorOpen className="w-3.5 h-3.5 text-white" />
+              <span>PORTA DA SALA</span>
+            </div>
+
+            {/* GRADE DE CARTEIRAS (CENTRALIZADA E COMPACTA) */}
+            <div className="z-10 my-8 py-3 px-3 bg-slate-50/60 rounded-2xl border border-slate-200 shadow-2xs">
               <div
                 className="grid gap-1.5 sm:gap-2"
                 style={{
-                  gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(70px, 92px))`,
+                  gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
                 }}
               >
                 {Array.from({ length: currentLayout.rows }).map((_, r) =>
@@ -717,7 +742,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                             ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
                             : studentName
                             ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
-                            : 'border-dashed border-slate-300 bg-slate-50/70 hover:bg-slate-100/90 hover:border-slate-400 text-slate-400'
+                            : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
                         }`}
                         title={studentName ? `Carteira: ${studentName}` : `Carteira livre (F${r + 1}-C${c + 1})`}
                       >
@@ -755,81 +780,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   })
                 )}
               </div>
-
-              {/* PAREDE LATERAL DIREITA */}
-              <div className="flex flex-col items-center justify-between py-2 border-l-2 border-slate-200 pl-2 min-w-[75px] gap-2">
-                {doorPosition === 'right-top' && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
-                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
-                  </span>
-                )}
-                {boardPosition === 'right' && (
-                  <div className="py-3 px-1 rounded-lg bg-slate-800 text-white font-extrabold text-[10px] uppercase [writing-mode:vertical-lr] flex items-center gap-1 shadow-xs">
-                    QUADRO / LOUSA
-                  </div>
-                )}
-                {teacherDeskPosition === 'right-center' && (
-                  <span className="px-1.5 py-1 rounded bg-amber-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5 [writing-mode:vertical-lr]">
-                    MESA PROF
-                  </span>
-                )}
-                {doorPosition === 'right-bottom' && (
-                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
-                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
-                  </span>
-                )}
-              </div>
-
             </div>
 
-            {/* PAREDE INFERIOR (FUNDO DA SALA - QUADRO, PORTA OU MESA SE CONFIGURADO NO FUNDO) */}
-            <div className="w-full flex items-center justify-between gap-2 mt-3 pt-2 border-t-2 border-slate-200">
-              {/* Canto Esquerdo Fundo */}
-              <div className="flex items-center gap-1.5 min-w-[90px]">
-                {doorPosition === 'bottom-left' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <DoorOpen className="w-3 h-3" /> PORTA
-                  </span>
-                )}
-                {teacherDeskPosition === 'bottom-left' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROF.
-                  </span>
-                )}
-              </div>
-
-              {/* Centro Fundo */}
-              <div className="flex-1 flex justify-center items-center gap-2">
-                {boardPosition === 'bottom' ? (
-                  <div className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-extrabold text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-sm border border-slate-700">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span>QUADRO / LOUSA (FUNDO)</span>
-                  </div>
-                ) : (
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    --- FUNDO DA SALA ---
-                  </span>
-                )}
-                {teacherDeskPosition === 'bottom-center' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROFESSOR
-                  </span>
-                )}
-              </div>
-
-              {/* Canto Direito Fundo */}
-              <div className="flex items-center justify-end gap-1.5 min-w-[90px]">
-                {doorPosition === 'bottom-right' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <DoorOpen className="w-3 h-3" /> PORTA
-                  </span>
-                )}
-                {teacherDeskPosition === 'bottom-right' && (
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
-                    <Briefcase className="w-3 h-3" /> MESA PROF.
-                  </span>
-                )}
-              </div>
+            {/* MARCADOR DE FUNDO DA SALA */}
+            <div className="w-full text-center mt-auto pt-2">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                — PAREDE DE FUNDO DA SALA —
+              </span>
             </div>
 
           </div>
@@ -917,7 +874,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             Total: <strong>{occupiedSeatsCount}</strong> / {totalSeats} ocupadas • <strong>{totalSeats - occupiedSeatsCount}</strong> livres
           </div>
           <div className="text-[10px] text-slate-400 flex items-center gap-2">
-            <span>Orientação: Carteiras voltadas para <strong>{deskFacing}</strong></span>
+            <span>Orientação: Carteiras viradas para <strong>{deskFacing}</strong></span>
             <span>•</span>
             <span>{assignedRegent ? `Regente: ${assignedRegent.teacherName}` : 'Sem regente'}</span>
           </div>
