@@ -706,31 +706,14 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
               {/* TABELA DE HORÁRIO INTERATIVA: 5 TEMPOS DE SEGUNDA A SEXTA */}
               {selectedTeacher && (
                 <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm space-y-3">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                    <div>
-                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                        <Clock className="w-4 h-4 text-indigo-600" />
-                        <span>Tabela de Horário Semanal Interativa (Clique para Lançar/Remover)</span>
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        Selecione o turno correspondente e a turma para preencher os horários separadamente.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-slate-700">Turma p/ marcar:</span>
-                      <select
-                        value={selectedTurmaForGrid}
-                        onChange={(e) => setSelectedTurmaForGrid(e.target.value)}
-                        className={`px-2.5 py-1 text-xs font-black border rounded-lg focus:outline-none transition-colors ${getClassColorStyle(selectedTurmaForGrid).pill}`}
-                      >
-                        {Object.entries(CLASS_COLORS_MAP).map(([cName, info]) => (
-                          <option key={cName} value={cName}>
-                            {info.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="border-b border-slate-100 pb-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-indigo-600" />
+                      <span>Tabela de Horário Semanal Interativa (Clique para Lançar/Remover)</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Selecione o turno correspondente e clique na célula para preencher ou remover os horários.
+                    </p>
                   </div>
 
                   {/* SELEÇÃO DO TURNO (MENU DROPDOWN) */}
@@ -757,12 +740,6 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                           ));
                         })()}
                       </select>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-extrabold text-indigo-800 bg-indigo-100/80 px-2.5 py-1 rounded-full border border-indigo-300">
-                        Quadro Ativo: <strong>{activeShiftTab}</strong> (5 Tempos)
-                      </span>
                     </div>
                   </div>
 
