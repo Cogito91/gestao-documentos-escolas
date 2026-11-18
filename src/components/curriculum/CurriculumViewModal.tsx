@@ -218,13 +218,25 @@ const TIPO_COLETA_STYLES: Record<string, { bg: string; text: string; border: str
   },
 };
 
-// Opções de Anos do Ensino Fundamental (Anos Finais)
+// Opções de Modalidade e Etapas (Ensino Fundamental Anos Finais & EJA Noturno Semed Manaus)
 const anosOptions = [
-  { label: 'Todos os Anos (6º ao 9º)', value: 'all' },
+  { label: 'Todos os Anos / Etapas', value: 'all' },
+  { label: '--- Ensino Fundamental (Regular) ---', value: 'sep_regular', disabled: true },
   { label: '6º ANO', value: '6 ANO' },
   { label: '7º ANO', value: '7 ANO' },
   { label: '8º ANO', value: '8 ANO' },
   { label: '9º ANO', value: '9 ANO' },
+  { label: '--- EJA 2º Segmento (Noturno) ---', value: 'sep_eja2', disabled: true },
+  { label: 'EJA 1ª Etapa (5ª Fase)', value: '6 ANO' },
+  { label: 'EJA 2ª Etapa (6ª Fase)', value: '7 ANO' },
+  { label: 'EJA 3ª Etapa (7ª Fase)', value: '8 ANO' },
+  { label: 'EJA 4ª Etapa (8ª Fase)', value: '9 ANO' },
+  { label: '--- EJA 1º Segmento (Iniciais) ---', value: 'sep_eja1', disabled: true },
+  { label: 'EJA Alfabetização (1º Ano)', value: '1 ANO' },
+  { label: 'EJA Módulo 1 (2º Ano)', value: '2 ANO' },
+  { label: 'EJA Módulo 2 (3º Ano)', value: '3 ANO' },
+  { label: 'EJA Módulo 3 (4º Ano)', value: '4 ANO' },
+  { label: 'EJA Módulo 4 (5º Ano)', value: '5 ANO' },
 ];
 
 const bimestresOptions = [
@@ -853,7 +865,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
                 className="w-full px-3 py-1.5 text-xs font-bold text-slate-800 border border-slate-300 rounded-xl bg-white shadow-2xs focus:ring-2 focus:ring-sky-400 focus:outline-none"
               >
                 {anosOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                  <option key={opt.value} value={opt.value} disabled={opt.disabled} className={opt.disabled ? 'font-bold text-slate-400 bg-slate-100' : ''}>
                     {opt.label}
                   </option>
                 ))}
