@@ -247,6 +247,15 @@ const bimestresOptions = [
   { label: '4º BIM', value: '4 BIM' },
 ];
 
+const tiposColetaOptions = [
+  { label: 'Todos os Tipos de Coleta', value: 'all' },
+  { label: 'CURRÍCULO (SEMED)', value: 'CURRICULO' },
+  { label: 'SEQUÊNCIA DIDÁTICA', value: 'SEQUENCIA DIDATICA' },
+  { label: 'BNCC / CO', value: 'BNCC/CO' },
+  { label: 'ROTEIRO', value: 'ROTEIRO' },
+  { label: 'ESCOLA DA ADOLESCÊNCIA', value: 'ESCOLA ADOLESCENCIA' },
+];
+
 export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
   isOpen,
   onClose,
@@ -294,6 +303,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
   const [activeDiscipline, setActiveDiscipline] = useState<string>(initialTab);
   const [selectedAno, setSelectedAno] = useState<string>('all');
   const [selectedBimestre, setSelectedBimestre] = useState<string>('all');
+  const [selectedTipoColeta, setSelectedTipoColeta] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [expandedHabilidades, setExpandedHabilidades] = useState<Record<number, boolean>>({});
@@ -638,6 +648,9 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
     return rawItems.filter((item) => {
       const matchesAno = selectedAno === 'all' || item.ano === selectedAno;
       const matchesBim = selectedBimestre === 'all' || item.bimestre === selectedBimestre;
+      const matchesTipoColeta =
+        selectedTipoColeta === 'all' ||
+        item.tipoColeta.trim().toUpperCase() === selectedTipoColeta.trim().toUpperCase();
 
       const q = searchTerm.trim().toLowerCase();
       const matchesSearch =
@@ -648,9 +661,9 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
         item.tipoColeta.toLowerCase().includes(q) ||
         item.segmento.toLowerCase().includes(q);
 
-      return matchesAno && matchesBim && matchesSearch;
+      return matchesAno && matchesBim && matchesTipoColeta && matchesSearch;
     });
-  }, [activeDiscipline, selectedAno, selectedBimestre, searchTerm]);
+  }, [activeDiscipline, selectedAno, selectedBimestre, selectedTipoColeta, searchTerm]);
 
   const activeMeta = disciplineMeta[activeDiscipline] || {
     label: activeDiscipline,
@@ -858,8 +871,24 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
         <div className="px-4 py-2.5 bg-white border-b border-slate-200">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center">
 
-            {/* Filtro Ano de Ensino (6º ao 9º Ano) */}
-            <div className="sm:col-span-4">
+            {/* Filtro Tipo de Coleta (CURRÍCULO, SEQUÊNCIA DIDÁTICA, BNCC/CO, etc.) */}
+            <div className="sm:col-span-3">
+              <select
+                value={selectedTipoColeta}
+                onChange={(e) => setSelectedTipoColeta(e.target.value)}
+                className="w-full px-3 py-1.5 text-xs font-bold text-indigo-950 border-2 border-indigo-300 rounded-xl bg-indigo-50/50 shadow-2xs focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                title="Filtrar por Tipo de Coleta (Currículo SEMED, Sequência Didática, BNCC/CO...)"
+              >
+                {tiposColetaOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filtro Ano de Ensino / Etapa */}
+            <div className="sm:col-span-3">
               <select
                 value={selectedAno}
                 onChange={(e) => setSelectedAno(e.target.value)}
@@ -874,7 +903,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
             </div>
 
             {/* Filtro Bimestre */}
-            <div className="sm:col-span-4">
+            <div className="sm:col-span-3">
               <select
                 value={selectedBimestre}
                 onChange={(e) => setSelectedBimestre(e.target.value)}
@@ -889,7 +918,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
             </div>
 
             {/* Campo Busca Rápida */}
-            <div className="sm:col-span-4 relative">
+            <div className="sm:col-span-3 relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2" />
               <input
                 type="text"
