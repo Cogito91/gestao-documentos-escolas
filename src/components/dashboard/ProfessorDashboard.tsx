@@ -26,7 +26,8 @@ import {
   AlertTriangle,
   Search,
   History,
-  BookOpen
+  BookOpen,
+  Grid
 } from 'lucide-react';
 import {
   getNotificationPermission,
@@ -48,6 +49,7 @@ import { SpecialDocumentModal } from '../documents/SpecialDocumentModal';
 import { OccurrenceModal } from '../documents/OccurrenceModal';
 import { CurriculumViewModal } from '../curriculum/CurriculumViewModal';
 import { TeacherCalendarModal } from '../calendar/TeacherCalendarModal';
+import { ClassroomMappingModal } from '../classroom/ClassroomMappingModal';
 import { documentService } from '../../services/documentService';
 import { useAuth } from '../../contexts/AuthContext';
 import { formatDeadlineLabel } from '../../lib/utils';
@@ -108,6 +110,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [folderLoading, setFolderLoading] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [isClassroomMappingOpen, setIsClassroomMappingOpen] = useState(false);
   const [selectedScheduleShift, setSelectedScheduleShift] = useState<string>('Manhã');
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | 'unsupported'>(() =>
     getNotificationPermission()
@@ -520,6 +523,15 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-2 gap-2 w-full">
+            <button
+              onClick={() => setIsClassroomMappingOpen(true)}
+              className="px-2 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 font-bold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs col-span-2"
+              title="Mapeamento de Sala de Aula e Carteiras dos Alunos"
+            >
+              <Grid className="w-4 h-4 text-purple-700 shrink-0" />
+              <span>Mapeamento de Sala (Carteiras & Regência)</span>
+            </button>
+
             <button
               onClick={() => setIsCurriculumModalOpen(true)}
               className="px-2 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 text-blue-800 font-bold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs"
@@ -1883,6 +1895,14 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
         onClose={() => setIsCurriculumModalOpen(false)}
         userDiscipline={profile?.discipline || 'MATEMÁTICA'}
         restrictToUserDiscipline={true}
+      />
+
+      {/* Modal de Mapeamento de Sala de Aula & Regência */}
+      <ClassroomMappingModal
+        isOpen={isClassroomMappingOpen}
+        onClose={() => setIsClassroomMappingOpen(false)}
+        currentUser={profile}
+        isPedagoga={false}
       />
 
       {/* Modal Integrado: Meu Calendário & Prazos */}

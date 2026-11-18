@@ -19,12 +19,14 @@ import {
   Printer,
   FileCheck2,
   BookOpen,
-  Users
+  Users,
+  Grid
 } from 'lucide-react';
 import { SchoolDocument, Profile, DocumentCategory, DocumentStatus, Birthday } from '../../types/database.types';
 import { ReviewModal } from '../documents/ReviewModal';
 import { DocumentThumbnail } from '../documents/DocumentThumbnail';
 import { CurriculumViewModal } from '../curriculum/CurriculumViewModal';
+import { ClassroomMappingModal } from '../classroom/ClassroomMappingModal';
 import { notificationService } from '../../services/notificationService';
 import { formatDeadlineLabel, formatAbsenceDateLabel } from '../../lib/utils';
 
@@ -58,6 +60,7 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
   const [isCurriculumModalOpen, setIsCurriculumModalOpen] = useState(() => {
     return new URLSearchParams(window.location.search).get('matriz') === 'true';
   });
+  const [isClassroomMappingOpen, setIsClassroomMappingOpen] = useState(false);
   const [activeTab, setActiveTabState] = useState<'matrix' | 'inadimplentes' | 'teachers' | 'emergency' | 'certificates' | 'occurrences'>(() => {
     const saved = sessionStorage.getItem('pedagoga_active_tab');
     if (saved && ['matrix', 'inadimplentes', 'teachers', 'emergency', 'certificates', 'occurrences'].includes(saved)) {
@@ -263,11 +266,12 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
           </button>
 
           <button
-            onClick={() => onOpenTeachers()}
-            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[11px] rounded-xl border border-emerald-200 transition col-span-2"
+            onClick={() => setIsClassroomMappingOpen(true)}
+            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-gradient-to-r from-indigo-700 to-blue-700 hover:from-indigo-800 hover:to-blue-800 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2"
+            title="Mapeamento de Sala de Aula: definir fileiras, carteiras e indicar professor regente"
           >
-            <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Cadastrar / Editar Turmas (6º ao 9º Ano)</span>
+            <Grid className="w-4 h-4 text-sky-300 shrink-0" />
+            <span>Mapeamento de Sala & Regentes (Definir Regentes)</span>
           </button>
 
           <button
@@ -1118,6 +1122,15 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
       <CurriculumViewModal
         isOpen={isCurriculumModalOpen}
         onClose={() => setIsCurriculumModalOpen(false)}
+      />
+
+      {/* Modal de Mapeamento de Sala & Regentes */}
+      <ClassroomMappingModal
+        isOpen={isClassroomMappingOpen}
+        onClose={() => setIsClassroomMappingOpen(false)}
+        currentUser={{ id: 'pedagoga', full_name: 'Coordenação Pedagógica', email: 'pedagoga@escola.com', role: 'pedagoga', is_active: true, created_at: '', updated_at: '' }}
+        isPedagoga={true}
+        teachers={teachers}
       />
 
       {/* Modal de Enviar Cobrança de Pendência */}
