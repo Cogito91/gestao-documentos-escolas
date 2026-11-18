@@ -5,10 +5,21 @@ export type TeacherDeskPosition = 'top-left' | 'top-right' | 'top-center' | 'bot
 export type DoorPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom';
 export type DeskFacing = 'up' | 'down' | 'left' | 'right';
 
+export interface StudentObservation {
+  id: string;
+  studentName: string;
+  className: string;
+  text: string;
+  authorName: string;
+  authorId?: string;
+  createdAt: string;
+}
+
 export interface ClassroomLayout {
   rows: number;
   cols: number;
   seats: Record<string, string>; // chave: "r-c" (ex: "0-1"), valor: nome do estudante
+  observations?: Record<string, StudentObservation[]>; // chave: nome do estudante normalizado em minúsculas
   boardPosition?: BoardPosition; // Onde fica a lousa/quadro
   teacherDeskPosition?: TeacherDeskPosition; // Onde fica a mesa do professor
   doorPosition?: DoorPosition; // Onde fica a porta
@@ -140,6 +151,56 @@ export const classroomService = {
     const config = await this.fetchConfig();
     delete config.regents[className];
     await this.saveConfig(config);
+    return config;
+  },
+
+  // Adiciona observação a um estudante
+  async addStudentObservation(
+    className: string,
+    studentName: string,
+    text: string,
+    authorName: string,
+    authorId?: string
+  ): Promise<ClassRegentsConfig> {
+    const config = await this.fetchConfig();
+    const current = config.layouts[className] || { rows: 5, cols: 6, seats: {} };
+    const observations = current.observations || {};
+    const key = studentName.trim().toLowerCase();
+
+    const newObs: StudentObservation = {
+      id: Math.random().toString(36).substring(2, 9),
+      studentName: studentName.trim(),
+      className,
+      text: text.trim(),
+      authorName,
+      authorId,
+      createdAt: new Date().toISOString(),
+    };
+
+    observations[key] = [newObs, ...(observations[key] || [])];
+    current.observations = observations;
+    config.layouts[className] = current;
+
+    await this.saveConfig(config);
+    return config;
+  },
+
+  // Remove observação de um estudante
+  async removeStudentObservation(
+    className: string,
+    studentName: string,
+    observationId: string
+  ): Promise<ClassRegentsConfig> {
+    const config = await this.fetchConfig();
+    const current = config.layouts[className];
+    if (current && current.observations) {
+      const key = studentName.trim().toLowerCase();
+      if (current.observations[key]) {
+        current.observations[key] = current.observations[key].filter((o) => o.id !== observationId);
+      }
+      config.layouts[className] = current;
+      await this.saveConfig(config);
+    }
     return config;
   },
 

@@ -26,14 +26,26 @@ import {
   GripHorizontal,
   RotateCcw,
   Sliders,
+  AlertTriangle,
+  FileText,
+  MessageSquare,
+  Clock,
+  Calendar,
+  Eye,
+  AlertCircle,
+  PlusCircle,
 } from 'lucide-react';
 import {
   classroomService,
   ClassRegentsConfig,
   ClassroomLayout,
   DeskFacing,
+  StudentObservation,
 } from '../../services/classroomService';
-import { Profile } from '../../types/database.types';
+import { Profile, SchoolDocument } from '../../types/database.types';
+import { documentService } from '../../services/documentService';
+import { normalizeDocument } from '../../lib/utils';
+import { OccurrenceModal } from '../documents/OccurrenceModal';
 
 interface ClassroomMappingModalProps {
   isOpen: boolean;
@@ -62,21 +74,21 @@ const AVAILABLE_CLASSES = [
   'EJA 4ª Etapa A',
 ];
 
-// Converte índice de coluna (0, 1, 2...) para letra de coluna estilo planilha (A, B, C... Z, AA)
+// Converte índice de coluna (0, 1, 2...) para letra de coluna estilo planilha (A, B, C...)
 const getColLetter = (index: number): string => {
   return String.fromCharCode(65 + index);
 };
 
 interface CoordPos {
-  x: number; // porcentagem (0 a 100)
-  y: number; // porcentagem (0 a 100)
-  wall?: 'top' | 'bottom' | 'left' | 'right'; // Para a porta saber a parede encaixada
+  x: number;
+  y: number;
+  wall?: 'top' | 'bottom' | 'left' | 'right';
 }
 
 interface ObjectSizes {
-  boardWidth: number; // porcentagem ou escala (ex: 20 a 70%)
-  teacherDeskScale: number; // escala (0.7 a 1.6)
-  doorScale: number; // escala (0.7 a 1.6)
+  boardWidth: number;
+  teacherDeskScale: number;
+  doorScale: number;
 }
 
 export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
@@ -101,6 +113,23 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   // Pedagoga: seleção de regente para atribuir
   const [regentTeacherId, setRegentTeacherId] = useState<string>('');
 
+  // DOCUMENTOS E OCORRÊNCIAS
+  const [allDocuments, setAllDocuments] = useState<SchoolDocument[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+
+  // MODAL DE DETALHES/OBSERVAÇÕES DO ALUNO SELECIONADO
+  const [activeStudentModal, setActiveStudentModal] = useState<{
+    name: string;
+    seatCoord: string;
+    r: number;
+    c: number;
+  } | null>(null);
+  const [newObservationText, setNewObservationText] = useState('');
+  const [activeTab, setActiveTab] = useState<'observations' | 'occurrences'>('observations');
+
+  // MODAL DE LANÇAR NOVA OCORRÊNCIA
+  const [isOccurrenceModalOpen, setIsOccurrenceModalOpen] = useState(false);
+
   // Container de drag and drop
   const roomAreaRef = useRef<HTMLDivElement>(null);
   const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
@@ -118,7 +147,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   // Tamanhos/escalas dos objetos configuráveis
   const [sizes, setSizes] = useState<ObjectSizes>({
-    boardWidth: 42, // 42% da largura da sala
+    boardWidth: 42,
     teacherDeskScale: 1.0,
     doorScale: 1.0,
   });
@@ -126,6 +155,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       loadConfig();
+      fetchOcorrencias();
     }
   }, [isOpen]);
 
@@ -134,7 +164,20 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setConfig(data);
   };
 
-  // Carrega posições e tamanhos personalizados salvos quando muda a turma
+  const fetchOcorrencias = async () => {
+    setLoadingDocs(true);
+    try {
+      const docs = await documentService.getDocuments();
+      const normalized = docs.map((d) => normalizeDocument(d));
+      setAllDocuments(normalized);
+    } catch (err) {
+      console.warn('Erro ao carregar ocorrências:', err);
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  // Carrega posições e tamanhos salvos
   useEffect(() => {
     const layout = config.layouts[selectedClass];
     if (layout?.seats) {
@@ -190,11 +233,46 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   const deskFacing: DeskFacing = currentLayout.deskFacing || 'up';
 
+  // Ocorrências do aluno selecionado
+  const getStudentOccurrences = (studentName: string) => {
+    const cleanQuery = studentName.trim().toLowerCase();
+    if (!cleanQuery) return [];
+    return allDocuments.filter((doc) => {
+      const isOcorrencia = doc.special_kind === 'ocorrencia' || doc.file_url === 'ocorrencia://registro-interno';
+      if (!isOcorrencia) return false;
+      const targetStudent = (doc.student_name || '').toLowerCase();
+      const docTitle = (doc.title || '').toLowerCase();
+      const docDesc = (doc.description || '').toLowerCase();
+      return targetStudent.includes(cleanQuery) || docTitle.includes(cleanQuery) || docDesc.includes(cleanQuery);
+    });
+  };
+
+  // Observações pedagógicas do aluno selecionado
+  const getStudentObservations = (studentName: string): StudentObservation[] => {
+    const cleanKey = studentName.trim().toLowerCase();
+    return currentLayout.observations?.[cleanKey] || [];
+  };
+
   const handleSeatClick = (r: number, c: number) => {
     const seatKey = `${r}-${c}`;
-    const currentName = currentLayout.seats[seatKey] || '';
-    setSelectedSeat({ r, c });
-    setStudentInput(currentName);
+    const studentName = currentLayout.seats[seatKey] || '';
+    const seatCoord = `${getColLetter(c)}${r + 1}`;
+
+    // Se a carteira já tem aluno alocado: Abre painel de perfil do aluno (Observações + Ocorrências)
+    if (studentName) {
+      setActiveStudentModal({
+        name: studentName,
+        seatCoord,
+        r,
+        c,
+      });
+      setSelectedSeat({ r, c });
+      setStudentInput(studentName);
+    } else {
+      // Se a carteira está livre: abre campo para digitar o nome
+      setSelectedSeat({ r, c });
+      setStudentInput('');
+    }
   };
 
   const handleSaveStudentName = async (e?: React.FormEvent) => {
@@ -225,6 +303,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setIsSaving(false);
     setSelectedSeat(null);
     setStudentInput('');
+    if (activeStudentModal) {
+      setActiveStudentModal((prev) => (prev ? { ...prev, name: cleanName } : null));
+    }
     showToast('Carteira atualizada com sucesso!');
   };
 
@@ -244,7 +325,41 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setIsSaving(false);
     setSelectedSeat(null);
     setStudentInput('');
+    setActiveStudentModal(null);
     showToast('Carteira liberada.');
+  };
+
+  const handleAddObservation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeStudentModal || !newObservationText.trim()) return;
+
+    setIsSaving(true);
+    const updated = await classroomService.addStudentObservation(
+      selectedClass,
+      activeStudentModal.name,
+      newObservationText.trim(),
+      currentUser?.full_name || 'Professor',
+      currentUser?.id
+    );
+    setConfig(updated);
+    setNewObservationText('');
+    setIsSaving(false);
+    showToast('Observação registrada com sucesso!');
+  };
+
+  const handleDeleteObservation = async (obsId: string) => {
+    if (!activeStudentModal) return;
+    if (!confirm('Deseja excluir esta observação?')) return;
+
+    setIsSaving(true);
+    const updated = await classroomService.removeStudentObservation(
+      selectedClass,
+      activeStudentModal.name,
+      obsId
+    );
+    setConfig(updated);
+    setIsSaving(false);
+    showToast('Observação removida.');
   };
 
   const handleResizeGrid = async (deltaRows: number, deltaCols: number) => {
@@ -339,7 +454,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
     const currentItem = draggingItemRef.current;
 
-    // Se for a PORTA: Encaixa (snap) perfeitamente na parede mais próxima (0% ou 100%)
+    // Se for a PORTA: Encaixa na parede mais próxima (0% ou 100%)
     if (currentItem === 'door') {
       const distTop = rawY;
       const distBottom = 100 - rawY;
@@ -353,19 +468,19 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       let wall: 'top' | 'bottom' | 'left' | 'right' = 'top';
 
       if (minDist === distTop) {
-        snappedY = 0; // Encaixa na parede do topo
+        snappedY = 0;
         snappedX = Math.max(6, Math.min(94, rawX));
         wall = 'top';
       } else if (minDist === distBottom) {
-        snappedY = 100; // Encaixa na parede de baixo
+        snappedY = 100;
         snappedX = Math.max(6, Math.min(94, rawX));
         wall = 'bottom';
       } else if (minDist === distLeft) {
-        snappedX = 0; // Encaixa na parede da esquerda
+        snappedX = 0;
         snappedY = Math.max(6, Math.min(94, rawY));
         wall = 'left';
       } else {
-        snappedX = 100; // Encaixa na parede da direita
+        snappedX = 100;
         snappedY = Math.max(6, Math.min(94, rawY));
         wall = 'right';
       }
@@ -381,7 +496,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       return;
     }
 
-    // Para Quadro e Mesa do Professor: movimento livre dentro dos limites da sala
+    // Para Quadro e Mesa: movimento livre
     const xClamped = Math.max(5, Math.min(95, rawX));
     const yClamped = Math.max(3, Math.min(96, rawY));
 
@@ -493,7 +608,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     }
   };
 
-  // Formatação visual da porta dependendo de qual parede ela está encaixada
   const doorWall = positions.door.wall || 'top';
   const isVerticalDoor = doorWall === 'left' || doorWall === 'right';
 
@@ -520,7 +634,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base leading-tight">
-                  Mapeamento de Sala (Drag & Drop + Ajuste de Tamanhos)
+                  Mapeamento de Sala • Ocorrências & Observações
                 </h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
                   {selectedClass}
@@ -592,6 +706,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   onChange={(e) => {
                     setSelectedClass(e.target.value);
                     setSelectedSeat(null);
+                    setActiveStudentModal(null);
                   }}
                   className="px-2.5 py-1 text-xs font-black border border-indigo-300 rounded-lg bg-white text-indigo-900 shadow-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
@@ -631,13 +746,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
                   <span className="text-slate-600 text-[11px] font-bold">Matriz:</span>
                   <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
-                    {currentLayout.rows} Linhas × {currentLayout.cols} Colunas ({getColLetter(0)} a {getColLetter(currentLayout.cols - 1)})
+                    {currentLayout.rows}L × {currentLayout.cols}C ({getColLetter(0)} a {getColLetter(currentLayout.cols - 1)})
                   </span>
                   <button
                     type="button"
                     onClick={() => handleResizeGrid(-1, 0)}
                     className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Diminuir fileiras"
+                    title="Diminuir linhas"
                   >
                     <Minus className="w-3 h-3" />
                   </button>
@@ -645,7 +760,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                     type="button"
                     onClick={() => handleResizeGrid(1, 0)}
                     className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Aumentar fileiras"
+                    title="Aumentar linhas"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
@@ -673,16 +788,16 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               {canEditLayout && (
                 <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
                   <Compass className="w-3.5 h-3.5 text-indigo-700" />
-                  <span className="font-bold text-slate-700 text-[11px]">Direção das Carteiras:</span>
+                  <span className="font-bold text-slate-700 text-[11px]">Direção:</span>
                   <select
                     value={deskFacing}
                     onChange={(e) => handleUpdateDeskFacing(e.target.value as DeskFacing)}
                     className="px-2 py-0.5 text-xs font-black border border-slate-300 rounded-md bg-white text-indigo-900 cursor-pointer focus:ring-1 focus:ring-indigo-500"
                   >
-                    <option value="up">Apontar p/ Cima (↑)</option>
-                    <option value="down">Apontar p/ Baixo (↓)</option>
-                    <option value="left">Apontar p/ Esquerda (←)</option>
-                    <option value="right">Apontar p/ Direita (→)</option>
+                    <option value="up">Cima (↑)</option>
+                    <option value="down">Baixo (↓)</option>
+                    <option value="left">Esquerda (←)</option>
+                    <option value="right">Direita (→)</option>
                   </select>
                 </div>
               )}
@@ -722,8 +837,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             {/* PAINEL DE AJUSTE DE TAMANHOS DOS OBJETOS */}
             {canEditLayout && showSizeControls && (
               <div className="p-3 bg-gradient-to-r from-indigo-50 via-sky-50 to-slate-50 border-t border-indigo-100 flex flex-wrap items-center gap-5 text-xs animate-fadeIn">
-                
-                {/* 1. Tamanho do Quadro */}
                 <div className="flex items-center gap-2">
                   <Monitor className="w-3.5 h-3.5 text-slate-700" />
                   <span className="font-bold text-slate-700">Largura do Quadro:</span>
@@ -739,7 +852,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <span className="font-black text-indigo-700 text-[11px]">{sizes.boardWidth}%</span>
                 </div>
 
-                {/* 2. Tamanho da Mesa do Professor */}
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-3.5 h-3.5 text-amber-700" />
                   <span className="font-bold text-slate-700">Tamanho da Mesa:</span>
@@ -755,7 +867,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <span className="font-black text-amber-700 text-[11px]">{Math.round(sizes.teacherDeskScale * 100)}%</span>
                 </div>
 
-                {/* 3. Tamanho da Porta */}
                 <div className="flex items-center gap-2">
                   <DoorOpen className="w-3.5 h-3.5 text-emerald-700" />
                   <span className="font-bold text-slate-700">Tamanho da Porta:</span>
@@ -769,19 +880,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                     className="w-20 sm:w-28 accent-emerald-600 cursor-pointer"
                   />
                   <span className="font-black text-emerald-700 text-[11px]">{Math.round(sizes.doorScale * 100)}%</span>
-                </div>
-
-              </div>
-            )}
-
-            {/* BARRA DE DICA DE DRAG & DROP E ENCAIXE NA PAREDE */}
-            {canEditLayout && (
-              <div className="px-4 py-1.5 bg-sky-50/80 border-t border-sky-100 flex items-center justify-between text-[11px] text-sky-900">
-                <div className="flex items-center gap-1.5 font-medium">
-                  <GripHorizontal className="w-3.5 h-3.5 text-sky-600" />
-                  <span>
-                    <strong>Arraste livremente:</strong> a <strong>Porta se encaixa magneticamente na parede</strong> mais próxima (topo, fundo ou laterais). O <strong>Quadro</strong> e a <strong>Mesa</strong> podem ser posicionados onde quiser.
-                  </span>
                 </div>
               </div>
             )}
@@ -837,13 +935,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS ARRASTÁVEIS */}
         <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 bg-slate-100/70 flex flex-col items-center justify-center min-h-[420px]">
           
-          {/* PAREDES DA SALA DE AULA: A Porta se encaixa diretamente nas bordas */}
+          {/* PAREDES DA SALA DE AULA */}
           <div
             ref={roomAreaRef}
             className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-6 sm:p-8 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px] select-none"
             style={{ touchAction: 'none' }}
           >
-            {/* ELEMENTO 1: QUADRO / LOUSA (DRAG & DROP + LARGURA AJUSTÁVEL) */}
+            {/* ELEMENTO 1: QUADRO / LOUSA */}
             <div
               onMouseDown={(e) => startDrag('board', e)}
               onTouchStart={(e) => startDrag('board', e)}
@@ -858,7 +956,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               className={`z-20 px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg border-2 border-slate-600 transition-shadow ${
                 canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-indigo-400' : ''
               }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro. Ajuste o tamanho no menu.' : 'Quadro da sala'}
+              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro.' : 'Quadro da sala'}
             >
               {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
@@ -866,7 +964,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               <span className="truncate">QUADRO / LOUSA</span>
             </div>
 
-            {/* ELEMENTO 2: MESA DO PROFESSOR (DRAG & DROP + ESCALA AJUSTÁVEL) */}
+            {/* ELEMENTO 2: MESA DO PROFESSOR */}
             <div
               onMouseDown={(e) => startDrag('teacherDesk', e)}
               onTouchStart={(e) => startDrag('teacherDesk', e)}
@@ -888,7 +986,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               <span>MESA PROFESSOR</span>
             </div>
 
-            {/* ELEMENTO 3: PORTA DA SALA (ENCAIXADA NA PAREDE DA SALA) */}
+            {/* ELEMENTO 3: PORTA DA SALA */}
             <div
               onMouseDown={(e) => startDrag('door', e)}
               onTouchStart={(e) => startDrag('door', e)}
@@ -924,7 +1022,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               
               {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
               <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5">
-                <div className="w-5 sm:w-6" /> {/* Espaçador do índice da linha */}
+                <div className="w-5 sm:w-6" />
                 <div
                   className="grid gap-1.5 sm:gap-2"
                   style={{
@@ -963,29 +1061,62 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                         const seatKey = `${r}-${c}`;
                         const studentName = currentLayout.seats[seatKey];
                         const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
-                        const seatCoordLabel = `${getColLetter(c)}${r + 1}`; // Ex: A1, B1, C2
+                        const seatCoordLabel = `${getColLetter(c)}${r + 1}`;
+                        
+                        // Busca se esse aluno possui ocorrências ou observações
+                        const studentOccCount = studentName ? getStudentOccurrences(studentName).length : 0;
+                        const studentObsCount = studentName ? getStudentObservations(studentName).length : 0;
 
                         return (
                           <div
                             key={seatKey}
                             onClick={() => handleSeatClick(r, c)}
-                            className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer ${
+                            className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
                               isSelected
                                 ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
                                 : studentName
                                 ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
                                 : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
                             }`}
-                            title={studentName ? `Carteira ${seatCoordLabel} (Linha ${r + 1}, Coluna ${getColLetter(c)}): ${studentName}` : `Carteira livre (${seatCoordLabel})`}
+                            title={
+                              studentName
+                                ? `Carteira ${seatCoordLabel}: ${studentName} (${studentOccCount} ocorrências, ${studentObsCount} observações)`
+                                : `Carteira livre (${seatCoordLabel})`
+                            }
                           >
-                            {/* Indicador superior com Linha/Coluna no padrão Linha 1, Coluna A */}
-                            <div className="flex items-center justify-between text-[9px] font-black text-slate-500 leading-none">
+                            {/* Indicador superior com Coordenada e Badges de Alerta */}
+                            <div className="flex items-center justify-between text-[9px] font-black leading-none">
                               <span className="px-1 py-0.2 bg-slate-100 rounded text-slate-700 font-extrabold text-[8px] sm:text-[9px]">
                                 {seatCoordLabel}
                               </span>
-                              <span title={`Carteiras viradas para: ${deskFacing}`}>
-                                {renderFacingIcon()}
-                              </span>
+
+                              <div className="flex items-center gap-1">
+                                {/* Badge de Ocorrência se houver */}
+                                {studentOccCount > 0 && (
+                                  <span
+                                    className="px-1 py-0.2 rounded-full bg-rose-600 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs animate-pulse"
+                                    title={`${studentOccCount} ocorrência(s) registrada(s)`}
+                                  >
+                                    <AlertTriangle className="w-2 h-2" />
+                                    <span>{studentOccCount}</span>
+                                  </span>
+                                )}
+
+                                {/* Badge de Observação se houver */}
+                                {studentObsCount > 0 && (
+                                  <span
+                                    className="px-1 py-0.2 rounded-full bg-amber-500 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs"
+                                    title={`${studentObsCount} observação(ões) pedagógica(s)`}
+                                  >
+                                    <MessageSquare className="w-2 h-2" />
+                                    <span>{studentObsCount}</span>
+                                  </span>
+                                )}
+
+                                <span title={`Carteiras viradas para: ${deskFacing}`}>
+                                  {renderFacingIcon()}
+                                </span>
+                              </div>
                             </div>
 
                             {/* Nome do Estudante / Carteira Vazia */}
@@ -1005,7 +1136,11 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                             <div className="w-full flex items-center justify-center">
                               <div
                                 className={`w-full h-1 rounded-full ${
-                                  studentName ? 'bg-indigo-500' : 'bg-slate-200'
+                                  studentOccCount > 0
+                                    ? 'bg-rose-500'
+                                    : studentName
+                                    ? 'bg-indigo-500'
+                                    : 'bg-slate-200'
                                 }`}
                               />
                             </div>
@@ -1029,8 +1164,225 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
         </div>
 
-        {/* POPUP / MODAL INLINE PARA INSERIR NOME DO ALUNO AO CLICAR NA CARTEIRA */}
-        {selectedSeat && (
+        {/* MODAL / PAINEL COMPLETO DO ALUNO: OBSERVAÇÕES & OCORRÊNCIAS */}
+        {activeStudentModal && (
+          <div className="p-4 bg-white border-t border-slate-200 shadow-2xl flex flex-col gap-3 shrink-0 animate-fadeIn max-h-[46vh] overflow-y-auto">
+            
+            {/* TOPO DO PAINEL DO ALUNO */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+                  <UserCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-black text-slate-900">
+                      {activeStudentModal.name}
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-[10px] border border-indigo-200">
+                      Carteira {activeStudentModal.seatCoord} (L{activeStudentModal.r + 1} • Coluna {getColLetter(activeStudentModal.c)})
+                    </span>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded">
+                      {selectedClass}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Histórico pedagógico, anotações de comportamento e ocorrências disciplinares
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Botão de Lançar Nova Ocorrência Oficial */}
+                <button
+                  type="button"
+                  onClick={() => setIsOccurrenceModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                  title="Criar nova ocorrência disciplinar para este estudante"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>Registrar Ocorrência</span>
+                </button>
+
+                {/* Se regente, opção de trocar nome ou liberar carteira */}
+                {canEditLayout && (
+                  <button
+                    type="button"
+                    onClick={handleClearSeat}
+                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-xl transition"
+                    title="Remover estudante desta carteira"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Liberar Carteira</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveStudentModal(null);
+                    setSelectedSeat(null);
+                  }}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* ABAS: OBSERVAÇÕES PEDAGÓGICAS vs TODAS AS OCORRÊNCIAS */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveTab('observations')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
+                  activeTab === 'observations'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Observações Pedagógicas ({getStudentObservations(activeStudentModal.name).length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('occurrences')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
+                  activeTab === 'occurrences'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>Ocorrências Disciplinares ({getStudentOccurrences(activeStudentModal.name).length})</span>
+              </button>
+            </div>
+
+            {/* CONTEÚDO DA ABA 1: OBSERVAÇÕES PEDAGÓGICAS */}
+            {activeTab === 'observations' && (
+              <div className="space-y-3">
+                {/* Formulário para adicionar nova observação */}
+                <form onSubmit={handleAddObservation} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newObservationText}
+                    onChange={(e) => setNewObservationText(e.target.value)}
+                    placeholder="Adicione uma observação rápida (ex: aluno com dificuldade visual, sentar na frente, etc)..."
+                    className="flex-1 px-3 py-2 text-xs border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none bg-amber-50/40"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newObservationText.trim() || isSaving}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1 shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar Observação</span>
+                  </button>
+                </form>
+
+                {/* Lista de observações registradas */}
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {getStudentObservations(activeStudentModal.name).length === 0 ? (
+                    <p className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                      Nenhuma observação registrada para este aluno ainda.
+                    </p>
+                  ) : (
+                    getStudentObservations(activeStudentModal.name).map((obs) => (
+                      <div
+                        key={obs.id}
+                        className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start justify-between gap-2 text-xs"
+                      >
+                        <div className="space-y-0.5">
+                          <p className="font-semibold text-slate-800 leading-snug">{obs.text}</p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                            <span>Registrado por: <strong>{obs.authorName}</strong></span>
+                            <span>•</span>
+                            <span>{new Date(obs.createdAt).toLocaleString('pt-BR')}</span>
+                          </div>
+                        </div>
+                        {canEditLayout && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteObservation(obs.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                            title="Excluir observação"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* CONTEÚDO DA ABA 2: TODAS AS OCORRÊNCIAS DISCIPLINARES */}
+            {activeTab === 'occurrences' && (
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {getStudentOccurrences(activeStudentModal.name).length === 0 ? (
+                  <div className="text-center py-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-emerald-900">
+                      Nenhuma ocorrência registrada para este estudante!
+                    </p>
+                    <p className="text-[10px] text-emerald-700">
+                      O aluno está sem registros disciplinares no sistema.
+                    </p>
+                  </div>
+                ) : (
+                  getStudentOccurrences(activeStudentModal.name).map((occ) => (
+                    <div
+                      key={occ.id}
+                      className="p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl flex flex-col gap-1 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-black text-rose-900 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                          <span>{occ.title || 'Ocorrência Disciplinar'}</span>
+                        </span>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                          {occ.occurrence_date && (
+                            <span className="flex items-center gap-1 font-bold text-slate-700">
+                              <Calendar className="w-3 h-3 text-slate-400" />
+                              {occ.occurrence_date.split('-').reverse().join('/')}
+                            </span>
+                          )}
+                          {occ.occurrence_time_slot && (
+                            <span className="px-1.5 py-0.2 bg-white rounded border border-rose-200 text-rose-800 font-bold">
+                              {occ.occurrence_time_slot}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Motivo e ação tomada */}
+                      <p className="text-slate-800 text-[11px] font-medium leading-relaxed">
+                        {occ.description || 'Sem descrição.'}
+                      </p>
+
+                      {occ.action_taken && (
+                        <div className="text-[10px] text-rose-700 bg-white/80 px-2 py-0.5 rounded border border-rose-100 flex items-center gap-1">
+                          <strong>Ação Adotada:</strong> {occ.action_taken}
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-rose-100">
+                        <span>Professor: {occ.teacher?.full_name || 'Docente'}</span>
+                        <span>{new Date(occ.submitted_at || occ.updated_at).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* POPUP SIMPLES CASO SELECIONE UMA CARTEIRA LIVRE PARA DIGITAR O NOME */}
+        {selectedSeat && !activeStudentModal && (
           <div className="p-3 bg-white border-t border-slate-200 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 animate-fadeIn">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
@@ -1068,17 +1420,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <span>Salvar</span>
                 </button>
 
-                {currentLayout.seats[`${selectedSeat.r}-${selectedSeat.c}`] && (
-                  <button
-                    type="button"
-                    onClick={handleClearSeat}
-                    className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition border border-rose-200"
-                    title="Remover estudante desta carteira"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-
                 <button
                   type="button"
                   onClick={() => setSelectedSeat(null)}
@@ -1088,18 +1429,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 </button>
               </form>
             ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-700">
-                  Ocupante: {studentInput || 'Nenhum (Carteira Livre)'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedSeat(null)}
-                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
-                >
-                  Fechar
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedSeat(null)}
+                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
+              >
+                Fechar
+              </button>
             )}
           </div>
         )}
@@ -1117,6 +1453,42 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         </div>
 
       </div>
+
+      {/* MODAL PARA LANÇAR NOVA OCORRÊNCIA VINCULADA AO ALUNO */}
+      {isOccurrenceModalOpen && activeStudentModal && (
+        <OccurrenceModal
+          isOpen={isOccurrenceModalOpen}
+          onClose={() => setIsOccurrenceModalOpen(false)}
+          onSuccess={() => {
+            setIsOccurrenceModalOpen(false);
+            fetchOcorrencias();
+            showToast('Ocorrência registrada e atualizada no histórico do aluno!');
+          }}
+          suggestedClasses={[selectedClass]}
+          editingDocument={{
+            id: '',
+            teacher_id: currentUser?.id || '',
+            category_id: null,
+            folder_id: null,
+            title: `${activeStudentModal.name} • ${selectedClass}`,
+            description: '',
+            file_url: 'ocorrencia://registro-interno',
+            file_name: 'Registro de Ocorrência',
+            file_size: 0,
+            file_type: 'text/plain',
+            status: 'aprovado',
+            feedback: null,
+            reviewed_by: null,
+            reviewed_at: null,
+            submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            student_name: activeStudentModal.name,
+            target_classes: selectedClass,
+            occurrence_date: new Date().toISOString().slice(0, 10),
+            occurrence_time_slot: '1º Tempo',
+          } as unknown as SchoolDocument}
+        />
+      )}
     </div>
   );
 };
