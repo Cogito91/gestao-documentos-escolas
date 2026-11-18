@@ -1,9 +1,18 @@
 import { supabase } from '../lib/supabaseClient';
 
+export type BoardPosition = 'top' | 'bottom' | 'left' | 'right';
+export type TeacherDeskPosition = 'top-left' | 'top-right' | 'top-center' | 'bottom-left' | 'bottom-right' | 'bottom-center' | 'left-center' | 'right-center';
+export type DoorPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'left-top' | 'left-bottom' | 'right-top' | 'right-bottom';
+export type DeskFacing = 'up' | 'down' | 'left' | 'right';
+
 export interface ClassroomLayout {
   rows: number;
   cols: number;
   seats: Record<string, string>; // chave: "r-c" (ex: "0-1"), valor: nome do estudante
+  boardPosition?: BoardPosition; // Onde fica a lousa/quadro
+  teacherDeskPosition?: TeacherDeskPosition; // Onde fica a mesa do professor
+  doorPosition?: DoorPosition; // Onde fica a porta
+  deskFacing?: DeskFacing; // Direção para onde as carteiras apontam
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -40,6 +49,10 @@ export const classroomService = {
           rows: 5,
           cols: 6,
           seats: {},
+          boardPosition: 'top',
+          teacherDeskPosition: 'top-right',
+          doorPosition: 'top-left',
+          deskFacing: 'up',
           updatedAt: new Date().toISOString(),
           updatedBy: 'Prof. Walter Guimarães',
         },
@@ -91,7 +104,6 @@ export const classroomService = {
       if (!senderId) return;
 
       const content = `${SYNC_TAG}${JSON.stringify(config)}`;
-      // Grava no messages para que todos os usuários (pedagoga e professores) recebam
       await supabase.from('messages').insert({
         sender_id: senderId,
         recipient_id: senderId,
@@ -111,6 +123,10 @@ export const classroomService = {
         rows: 5,
         cols: 6,
         seats: {},
+        boardPosition: 'top',
+        teacherDeskPosition: 'top-right',
+        doorPosition: 'top-left',
+        deskFacing: 'up',
         updatedAt: new Date().toISOString(),
         updatedBy: teacherName,
       };
@@ -138,6 +154,10 @@ export const classroomService = {
       rows: 5,
       cols: 6,
       seats: {},
+      boardPosition: 'top',
+      teacherDeskPosition: 'top-right',
+      doorPosition: 'top-left',
+      deskFacing: 'up',
     };
 
     config.layouts[className] = {

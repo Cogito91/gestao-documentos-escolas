@@ -10,12 +10,31 @@ import {
   Printer,
   Sparkles,
   UserCheck,
-  AlertTriangle,
   X,
   Plus,
   Minus,
+  ChevronUp,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Sliders,
+  Maximize2,
+  DoorOpen,
+  Monitor,
+  Briefcase,
+  Compass,
 } from 'lucide-react';
-import { classroomService, ClassRegentsConfig, ClassroomLayout } from '../../services/classroomService';
+import {
+  classroomService,
+  ClassRegentsConfig,
+  ClassroomLayout,
+  BoardPosition,
+  TeacherDeskPosition,
+  DoorPosition,
+  DeskFacing,
+} from '../../services/classroomService';
 import { Profile } from '../../types/database.types';
 
 interface ClassroomMappingModalProps {
@@ -59,6 +78,11 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Controle de colapso do menu superior para maximizar área de trabalho
+  const [isMenuCollapsed, setIsMenuCollapsed] = useState(false);
+  // Controle de abertura da barra de personalização física (quadro, porta, mesa, orientação)
+  const [showLayoutSettings, setShowLayoutSettings] = useState(false);
+
   // Pedagoga: seleção de regente para atribuir
   const [regentTeacherId, setRegentTeacherId] = useState<string>('');
 
@@ -91,7 +115,16 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     rows: 5,
     cols: 6,
     seats: {},
+    boardPosition: 'top',
+    teacherDeskPosition: 'top-right',
+    doorPosition: 'top-left',
+    deskFacing: 'up',
   };
+
+  const boardPosition: BoardPosition = currentLayout.boardPosition || 'top';
+  const teacherDeskPosition: TeacherDeskPosition = currentLayout.teacherDeskPosition || 'top-right';
+  const doorPosition: DoorPosition = currentLayout.doorPosition || 'top-left';
+  const deskFacing: DeskFacing = currentLayout.deskFacing || 'up';
 
   const handleSeatClick = (r: number, c: number) => {
     const seatKey = `${r}-${c}`;
@@ -167,6 +200,22 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     showToast(`Matriz ajustada: ${newRows} fileiras × ${newCols} colunas.`);
   };
 
+  const handleUpdateLayoutProperty = async (patch: Partial<ClassroomLayout>) => {
+    if (!canEditLayout) {
+      alert('Apenas o professor regente tem permissão para reposicionar elementos ou alterar o direcionamento.');
+      return;
+    }
+    setIsSaving(true);
+    const updated = await classroomService.updateClassLayout(
+      selectedClass,
+      patch,
+      currentUser?.full_name || 'Professor Regente'
+    );
+    setConfig(updated);
+    setIsSaving(false);
+    showToast('Disposição da sala atualizada!');
+  };
+
   const handleAssignRegent = async () => {
     if (!isPedagoga || !regentTeacherId) return;
     const teacher = teachers.find((t) => t.id === regentTeacherId);
@@ -203,44 +252,87 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const occupiedSeatsCount = Object.keys(currentLayout.seats || {}).length;
   const totalSeats = currentLayout.rows * currentLayout.cols;
 
+  // Render do ícone de direção da carteira
+  const renderFacingIcon = () => {
+    switch (deskFacing) {
+      case 'down':
+        return <ArrowDown className="w-2.5 h-2.5 text-indigo-400 inline" />;
+      case 'left':
+        return <ArrowLeft className="w-2.5 h-2.5 text-indigo-400 inline" />;
+      case 'right':
+        return <ArrowRight className="w-2.5 h-2.5 text-indigo-400 inline" />;
+      case 'up':
+      default:
+        return <ArrowUp className="w-2.5 h-2.5 text-indigo-400 inline" />;
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-3 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-5xl w-full max-h-[96vh] flex flex-col overflow-hidden border border-slate-200">
         
         {/* TOAST DE FEEDBACK */}
         {toastMsg && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-700 text-white px-4 py-2 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold animate-fadeIn">
-            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-50 bg-indigo-800 text-white px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-1.5 text-xs font-bold animate-fadeIn">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
             <span>{toastMsg}</span>
           </div>
         )}
 
-        {/* CABEÇALHO */}
-        <div className="px-6 py-4 bg-gradient-to-r from-indigo-700 via-blue-700 to-sky-700 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/15 rounded-2xl shadow-inner border border-white/20">
-              <Grid className="w-5 h-5 text-white" />
+        {/* CABEÇALHO COMPACTO COM BOTÃO DE COLAPSAR MENU */}
+        <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-800 via-blue-800 to-sky-800 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="p-1.5 bg-white/15 rounded-xl border border-white/20">
+              <Grid className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h3 className="font-extrabold text-base sm:text-lg flex items-center gap-2">
-                <span>Mapeamento de Sala de Aula & Carteiras</span>
+              <div className="flex items-center gap-2">
+                <h3 className="font-extrabold text-sm sm:text-base leading-tight">
+                  Mapeamento de Sala & Carteiras
+                </h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
                   {selectedClass}
                 </span>
-              </h3>
-              <p className="text-xs text-sky-100">
-                Organize a disposição dos estudantes nas carteiras por turma
-              </p>
+                {assignedRegent && (
+                  <span className="hidden sm:inline-block text-[10px] text-sky-200 font-medium">
+                    (Regente: {assignedRegent.teacherName.split(' ')[1] || assignedRegent.teacherName})
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            {/* Botão de Colapsar / Expandir Menu Superior */}
+            <button
+              type="button"
+              onClick={() => setIsMenuCollapsed(!isMenuCollapsed)}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition border ${
+                isMenuCollapsed
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 hover:bg-amber-300'
+                  : 'bg-white/15 hover:bg-white/25 text-white border-white/20'
+              }`}
+              title={isMenuCollapsed ? 'Expandir menu superior' : 'Colapsar menu para ampliar tela de trabalho'}
+            >
+              {isMenuCollapsed ? (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Expandir Menu</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Ocultar Menu (Ampliar Sala)</span>
+                </>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => window.print()}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition border border-white/20"
+              className="hidden md:flex items-center gap-1 px-2.5 py-1 bg-white/15 hover:bg-white/25 text-white rounded-lg text-xs font-bold transition border border-white/20"
               title="Imprimir Mapeamento da Sala"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -249,256 +341,513 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
             <button
               onClick={onClose}
-              className="p-1.5 text-white/80 hover:text-white rounded-xl hover:bg-white/20 transition cursor-pointer"
+              className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/20 transition cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* BARRA DE CONTROLE: TURMA, REGENTE E MATRIZ */}
-        <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          
-          {/* Seletor de Turma */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Turma:</span>
-            <select
-              value={selectedClass}
-              onChange={(e) => {
-                setSelectedClass(e.target.value);
-                setSelectedSeat(null);
-              }}
-              className="px-3 py-1.5 text-xs font-black border-2 border-indigo-400 rounded-xl bg-white text-indigo-900 shadow-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer"
-            >
-              {AVAILABLE_CLASSES.map((c) => (
-                <option key={c} value={c}>
-                  {c} {config.regents[c] ? `(Regente: ${config.regents[c].teacherName.split(' ')[1] || 'Sim'})` : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status do Regente da Turma */}
-          <div className="flex items-center gap-2">
-            <div className="px-3 py-1.5 rounded-xl border flex items-center gap-2 text-xs font-semibold bg-white border-slate-200">
-              <UserCheck className="w-4 h-4 text-indigo-600 shrink-0" />
-              <div>
-                <span className="text-[10px] text-slate-400 block leading-tight">Professor Regente:</span>
-                <span className="font-extrabold text-slate-800">
-                  {assignedRegent ? assignedRegent.teacherName : 'Não atribuído'}
-                </span>
-              </div>
-            </div>
-
-            {/* Aviso de permissão */}
-            {canEditLayout ? (
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                <Edit3 className="w-3 h-3 text-emerald-600" />
-                <span>Permissão de Edição Liberada</span>
-              </span>
-            ) : (
-              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1" title="Somente o professor regente pode editar este mapa">
-                <Lock className="w-3 h-3 text-amber-600" />
-                <span>Apenas Consulta (Somente Regente Altera)</span>
-              </span>
-            )}
-          </div>
-
-          {/* Controles de Redimensionamento da Matriz (Fileiras x Colunas) */}
-          {canEditLayout && (
-            <div className="flex items-center gap-3 bg-white px-3 py-1.5 rounded-xl border border-slate-200">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <span>Fileiras:</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-100 font-extrabold text-indigo-700">{currentLayout.rows}</span>
-                <button
-                  type="button"
-                  onClick={() => handleResizeGrid(-1, 0)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-600 cursor-pointer"
-                  title="Diminuir fileiras"
+        {/* ÁREA DE CONTROLES (COLAPSÁVEL) */}
+        {!isMenuCollapsed && (
+          <div className="bg-slate-50 border-b border-slate-200 transition-all shrink-0">
+            {/* LINHA 1: TURMA, REGENTE, DIMENSÕES E BOTÃO DE PERSONALIZAÇÃO */}
+            <div className="p-2.5 sm:px-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+              
+              {/* Seletor de Turma */}
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-slate-700 text-xs">Turma:</span>
+                <select
+                  value={selectedClass}
+                  onChange={(e) => {
+                    setSelectedClass(e.target.value);
+                    setSelectedSeat(null);
+                  }}
+                  className="px-2.5 py-1 text-xs font-black border border-indigo-300 rounded-lg bg-white text-indigo-900 shadow-xs focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                 >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleResizeGrid(1, 0)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-600 cursor-pointer"
-                  title="Aumentar fileiras"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+                  {AVAILABLE_CLASSES.map((c) => (
+                    <option key={c} value={c}>
+                      {c} {config.regents[c] ? `★` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="w-px h-4 bg-slate-200" />
+              {/* Status do Regente */}
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200">
+                  <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span className="text-[11px] text-slate-500">Regente:</span>
+                  <span className="font-extrabold text-slate-800 text-xs truncate max-w-[130px] sm:max-w-none">
+                    {assignedRegent ? assignedRegent.teacherName : 'Não atribuído'}
+                  </span>
+                </div>
 
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <span>Colunas:</span>
-                <span className="px-1.5 py-0.5 rounded bg-slate-100 font-extrabold text-indigo-700">{currentLayout.cols}</span>
-                <button
-                  type="button"
-                  onClick={() => handleResizeGrid(0, -1)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-600 cursor-pointer"
-                  title="Diminuir colunas"
-                >
-                  <Minus className="w-3 h-3" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleResizeGrid(0, 1)}
-                  className="p-1 rounded hover:bg-slate-100 text-slate-600 cursor-pointer"
-                  title="Aumentar colunas"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+                {canEditLayout ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                    <Edit3 className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>Edição Liberada</span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                    <Lock className="w-2.5 h-2.5 text-amber-600" />
+                    <span>Apenas Leitura</span>
+                  </span>
+                )}
               </div>
-            </div>
-          )}
 
-        </div>
+              {/* Matriz (Fileiras x Colunas) & Botão de Disposição */}
+              {canEditLayout && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                    <span className="text-slate-600 text-[11px] font-bold">Grade:</span>
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
+                      {currentLayout.rows}F × {currentLayout.cols}C
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleResizeGrid(-1, 0)}
+                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                      title="Diminuir fileiras"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleResizeGrid(1, 0)}
+                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                      title="Aumentar fileiras"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <span className="text-slate-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => handleResizeGrid(0, -1)}
+                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                      title="Diminuir colunas"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleResizeGrid(0, 1)}
+                      className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
+                      title="Aumentar colunas"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
 
-        {/* SEÇÃO DA PEDAGOGA: ATRIBUIR OU TROCAR O PROFESSOR REGENTE */}
-        {isPedagoga && (
-          <div className="px-4 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-indigo-100 flex flex-wrap items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-              <span>Coordenação Pedagógica: Indicar Professor Regente do {selectedClass}</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={regentTeacherId}
-                onChange={(e) => setRegentTeacherId(e.target.value)}
-                className="px-2.5 py-1 text-xs font-medium border border-purple-300 rounded-lg bg-white text-purple-900 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="">Selecione o professor para ser regente...</option>
-                {teachers.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.full_name} ({t.discipline || 'Geral'})
-                  </option>
-                ))}
-              </select>
-
-              <button
-                type="button"
-                onClick={handleAssignRegent}
-                disabled={!regentTeacherId || isSaving}
-                className="px-3 py-1 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer"
-              >
-                Atribuir Regente
-              </button>
-
-              {assignedRegent && (
-                <button
-                  type="button"
-                  onClick={handleRemoveRegent}
-                  className="px-2 py-1 text-xs text-rose-600 hover:text-rose-800 font-semibold"
-                  title="Desvincular regente"
-                >
-                  Desvincular
-                </button>
+                  {/* Toggle para configurar Quadro, Porta, Mesa e Direcionamento */}
+                  <button
+                    type="button"
+                    onClick={() => setShowLayoutSettings(!showLayoutSettings)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition border shadow-xs ${
+                      showLayoutSettings
+                        ? 'bg-indigo-600 text-white border-indigo-700'
+                        : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                    }`}
+                  >
+                    <Sliders className="w-3 h-3" />
+                    <span>Posicionar Sala</span>
+                  </button>
+                </div>
               )}
+
             </div>
+
+            {/* PAINEL DE DISPOSIÇÃO FÍSICA: QUADRO, PORTA, MESA DO PROFESSOR, DIRECIONAMENTO CARTEIRAS */}
+            {canEditLayout && showLayoutSettings && (
+              <div className="p-3 bg-gradient-to-r from-indigo-50 via-sky-50 to-slate-50 border-t border-indigo-100 flex flex-wrap items-center gap-4 text-xs animate-fadeIn">
+                
+                {/* 1. Direcionamento das Carteiras */}
+                <div className="flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-indigo-700" />
+                  <span className="font-bold text-slate-700">Frente das Carteiras:</span>
+                  <div className="flex items-center bg-white rounded-lg border border-slate-300 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'up' })}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
+                        deskFacing === 'up' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Carteiras voltadas para Cima (Topo)"
+                    >
+                      <ArrowUp className="w-3 h-3" /> Cima
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'down' })}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
+                        deskFacing === 'down' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Carteiras voltadas para Baixo (Fundo)"
+                    >
+                      <ArrowDown className="w-3 h-3" /> Baixo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'left' })}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
+                        deskFacing === 'left' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Carteiras voltadas para a Esquerda"
+                    >
+                      <ArrowLeft className="w-3 h-3" /> Esq.
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateLayoutProperty({ deskFacing: 'right' })}
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 ${
+                        deskFacing === 'right' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                      title="Carteiras voltadas para a Direita"
+                    >
+                      <ArrowRight className="w-3 h-3" /> Dir.
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Posição da Lousa / Quadro */}
+                <div className="flex items-center gap-1.5">
+                  <Monitor className="w-3.5 h-3.5 text-slate-700" />
+                  <span className="font-bold text-slate-700">Quadro / Lousa:</span>
+                  <select
+                    value={boardPosition}
+                    onChange={(e) => handleUpdateLayoutProperty({ boardPosition: e.target.value as BoardPosition })}
+                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
+                  >
+                    <option value="top">Parede Superior (Topo)</option>
+                    <option value="bottom">Parede Inferior (Fundo)</option>
+                    <option value="left">Parede Esquerda</option>
+                    <option value="right">Parede Direita</option>
+                  </select>
+                </div>
+
+                {/* 3. Posição da Mesa do Professor */}
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="font-bold text-slate-700">Mesa do Professor:</span>
+                  <select
+                    value={teacherDeskPosition}
+                    onChange={(e) => handleUpdateLayoutProperty({ teacherDeskPosition: e.target.value as TeacherDeskPosition })}
+                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
+                  >
+                    <option value="top-right">Topo - Direita</option>
+                    <option value="top-left">Topo - Esquerda</option>
+                    <option value="top-center">Topo - Centro</option>
+                    <option value="bottom-right">Fundo - Direita</option>
+                    <option value="bottom-left">Fundo - Esquerda</option>
+                    <option value="bottom-center">Fundo - Centro</option>
+                    <option value="left-center">Lateral Esquerda</option>
+                    <option value="right-center">Lateral Direita</option>
+                  </select>
+                </div>
+
+                {/* 4. Posição da Porta */}
+                <div className="flex items-center gap-1.5">
+                  <DoorOpen className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="font-bold text-slate-700">Porta da Sala:</span>
+                  <select
+                    value={doorPosition}
+                    onChange={(e) => handleUpdateLayoutProperty({ doorPosition: e.target.value as DoorPosition })}
+                    className="px-2 py-1 text-xs font-bold border border-slate-300 rounded-lg bg-white text-slate-800"
+                  >
+                    <option value="top-left">Topo - Esquerda</option>
+                    <option value="top-right">Topo - Direita</option>
+                    <option value="left-top">Lateral Esquerda - Superior</option>
+                    <option value="left-bottom">Lateral Esquerda - Inferior</option>
+                    <option value="right-top">Lateral Direita - Superior</option>
+                    <option value="right-bottom">Lateral Direita - Inferior</option>
+                    <option value="bottom-left">Fundo - Esquerda</option>
+                    <option value="bottom-right">Fundo - Direita</option>
+                  </select>
+                </div>
+
+              </div>
+            )}
+
+            {/* SEÇÃO DA PEDAGOGA: ATRIBUIR OU TROCAR REGENTE */}
+            {isPedagoga && (
+              <div className="px-4 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 border-t border-purple-100 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Coordenação Pedagógica: Indicar Professor Regente ({selectedClass})</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={regentTeacherId}
+                    onChange={(e) => setRegentTeacherId(e.target.value)}
+                    className="px-2 py-1 text-xs font-medium border border-purple-300 rounded-lg bg-white text-purple-900 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="">Selecione o professor regente...</option>
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.full_name} ({t.discipline || 'Geral'})
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleAssignRegent}
+                    disabled={!regentTeacherId || isSaving}
+                    className="px-2.5 py-1 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer"
+                  >
+                    Atribuir Regente
+                  </button>
+
+                  {assignedRegent && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveRegent}
+                      className="px-2 py-0.5 text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                      title="Desvincular regente"
+                    >
+                      Desvincular
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
           </div>
         )}
 
-        {/* ÁREA PRINCIPAL: QUADRO DA SALA (LOUSA + CARTEIRAS) */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-100/60 flex flex-col items-center">
+        {/* ÁREA PRINCIPAL DA SALA: PLANTA VISUAL COM QUADRO, PORTA, MESA E CARTEIRAS COMPACTAS */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-5 bg-slate-100/70 flex flex-col items-center justify-center min-h-[300px]">
           
-          {/* LOUSA / QUADRO BRANCO (FRENTE DA SALA) */}
-          <div className="w-full max-w-2xl bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 text-white py-2.5 px-6 rounded-2xl shadow-md border-2 border-slate-600 text-center mb-6 flex items-center justify-between">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-300">
-              [ PORTA ]
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-black tracking-widest uppercase text-slate-100">
-                QUADRO / MESA DO PROFESSOR (FRENTE)
-              </span>
+          {/* CONTAINER DA SALA COM BORDAS ILUSTRANDO AS PAREDES */}
+          <div className="relative bg-white/90 p-4 sm:p-6 rounded-3xl shadow-sm border-2 border-slate-300 max-w-full flex flex-col items-center">
+            
+            {/* PAREDE SUPERIOR (QUADRO OU PORTA OU MESA QUANDO NO TOPO) */}
+            <div className="w-full flex items-center justify-between gap-2 mb-3 pb-2 border-b-2 border-slate-200">
+              {/* Canto Esquerdo Topo (Porta ou Mesa) */}
+              <div className="flex items-center gap-1.5 min-w-[90px]">
+                {doorPosition === 'top-left' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <DoorOpen className="w-3 h-3" /> PORTA
+                  </span>
+                )}
+                {teacherDeskPosition === 'top-left' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROF.
+                  </span>
+                )}
+              </div>
+
+              {/* Centro Topo (Quadro ou Mesa) */}
+              <div className="flex-1 flex justify-center items-center gap-2">
+                {boardPosition === 'top' && (
+                  <div className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-extrabold text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-sm border border-slate-700">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>QUADRO / LOUSA</span>
+                  </div>
+                )}
+                {teacherDeskPosition === 'top-center' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROFESSOR
+                  </span>
+                )}
+              </div>
+
+              {/* Canto Direito Topo (Porta ou Mesa) */}
+              <div className="flex items-center justify-end gap-1.5 min-w-[90px]">
+                {doorPosition === 'top-right' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <DoorOpen className="w-3 h-3" /> PORTA
+                  </span>
+                )}
+                {teacherDeskPosition === 'top-right' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROF.
+                  </span>
+                )}
+              </div>
             </div>
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-slate-300">
-              [ JANELAS ]
-            </span>
-          </div>
 
-          {/* MATRIZ DE CARTEIRAS */}
-          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 inline-block max-w-full overflow-x-auto">
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(110px, 1fr))`,
-              }}
-            >
-              {Array.from({ length: currentLayout.rows }).map((_, r) =>
-                Array.from({ length: currentLayout.cols }).map((_, c) => {
-                  const seatKey = `${r}-${c}`;
-                  const studentName = currentLayout.seats[seatKey];
-                  const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
+            {/* CORPO DA SALA COM LATERAIS (ESQUERDA + MATRIZ + DIREITA) */}
+            <div className="flex items-center gap-3 w-full justify-center">
+              
+              {/* PAREDE LATERAL ESQUERDA */}
+              <div className="flex flex-col items-center justify-between py-2 border-r-2 border-slate-200 pr-2 min-w-[75px] gap-2">
+                {doorPosition === 'left-top' && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
+                  </span>
+                )}
+                {boardPosition === 'left' && (
+                  <div className="py-3 px-1 rounded-lg bg-slate-800 text-white font-extrabold text-[10px] uppercase [writing-mode:vertical-lr] rotate-180 flex items-center gap-1 shadow-xs">
+                    QUADRO / LOUSA
+                  </div>
+                )}
+                {teacherDeskPosition === 'left-center' && (
+                  <span className="px-1.5 py-1 rounded bg-amber-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5 [writing-mode:vertical-lr]">
+                    MESA PROF
+                  </span>
+                )}
+                {doorPosition === 'left-bottom' && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
+                  </span>
+                )}
+              </div>
 
-                  return (
-                    <div
-                      key={seatKey}
-                      onClick={() => handleSeatClick(r, c)}
-                      className={`h-24 p-2 rounded-2xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105'
-                          : studentName
-                          ? 'border-blue-300 bg-gradient-to-b from-blue-50/70 to-indigo-50/50 hover:border-blue-400 shadow-2xs hover:scale-[1.02]'
-                          : 'border-dashed border-slate-300 bg-slate-50/60 hover:bg-slate-100/80 hover:border-slate-400 text-slate-400'
-                      }`}
-                      title={studentName ? `Carteira ocupada por: ${studentName}` : `Carteira livre (F${r + 1} - C${c + 1})`}
-                    >
-                      {/* Topo da carteira: número e ícone */}
-                      <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-400">
-                        <span>F{r + 1} C{c + 1}</span>
-                        {studentName ? (
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        ) : (
-                          <span className="w-2 h-2 rounded-full bg-slate-300" />
-                        )}
-                      </div>
+              {/* GRADE DE CARTEIRAS COMPACTAS (Reduzidas para caber perfeitamente na tela) */}
+              <div
+                className="grid gap-1.5 sm:gap-2"
+                style={{
+                  gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(70px, 92px))`,
+                }}
+              >
+                {Array.from({ length: currentLayout.rows }).map((_, r) =>
+                  Array.from({ length: currentLayout.cols }).map((_, c) => {
+                    const seatKey = `${r}-${c}`;
+                    const studentName = currentLayout.seats[seatKey];
+                    const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
 
-                      {/* Nome do estudante ou indicador de carteira livre */}
-                      <div className="flex-1 flex items-center justify-center text-center px-1">
-                        {studentName ? (
-                          <p className="text-xs font-black text-slate-800 leading-snug line-clamp-2">
-                            {studentName}
-                          </p>
-                        ) : (
-                          <span className="text-[10px] font-bold text-slate-400 group-hover:text-slate-600">
-                            {canEditLayout ? '+ Atribuir Aluno' : 'Livre'}
+                    return (
+                      <div
+                        key={seatKey}
+                        onClick={() => handleSeatClick(r, c)}
+                        className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer ${
+                          isSelected
+                            ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
+                            : studentName
+                            ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
+                            : 'border-dashed border-slate-300 bg-slate-50/70 hover:bg-slate-100/90 hover:border-slate-400 text-slate-400'
+                        }`}
+                        title={studentName ? `Carteira: ${studentName}` : `Carteira livre (F${r + 1}-C${c + 1})`}
+                      >
+                        {/* Indicador superior com número da fileira/coluna e flecha de direcionamento */}
+                        <div className="flex items-center justify-between text-[9px] font-black text-slate-400 leading-none">
+                          <span className="text-[8px] sm:text-[9px]">F{r + 1}C{c + 1}</span>
+                          <span title={`Carteiras viradas para: ${deskFacing}`}>
+                            {renderFacingIcon()}
                           </span>
-                        )}
+                        </div>
+
+                        {/* Nome do Estudante / Carteira Vazia */}
+                        <div className="flex-1 flex items-center justify-center text-center px-0.5 overflow-hidden">
+                          {studentName ? (
+                            <p className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight line-clamp-2">
+                              {studentName}
+                            </p>
+                          ) : (
+                            <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-slate-600">
+                              {canEditLayout ? '+ Aluno' : 'Livre'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Marcador decorativo de carteira com status */}
+                        <div className="w-full flex items-center justify-center">
+                          <div
+                            className={`w-full h-1 rounded-full ${
+                              studentName ? 'bg-indigo-500' : 'bg-slate-200'
+                            }`}
+                          />
+                        </div>
                       </div>
+                    );
+                  })
+                )}
+              </div>
 
-                      {/* Base da carteira estilizada */}
-                      <div className="w-full h-1 rounded-full bg-slate-200 mt-1" />
-                    </div>
-                  );
-                })
-              )}
+              {/* PAREDE LATERAL DIREITA */}
+              <div className="flex flex-col items-center justify-between py-2 border-l-2 border-slate-200 pl-2 min-w-[75px] gap-2">
+                {doorPosition === 'right-top' && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
+                  </span>
+                )}
+                {boardPosition === 'right' && (
+                  <div className="py-3 px-1 rounded-lg bg-slate-800 text-white font-extrabold text-[10px] uppercase [writing-mode:vertical-lr] flex items-center gap-1 shadow-xs">
+                    QUADRO / LOUSA
+                  </div>
+                )}
+                {teacherDeskPosition === 'right-center' && (
+                  <span className="px-1.5 py-1 rounded bg-amber-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5 [writing-mode:vertical-lr]">
+                    MESA PROF
+                  </span>
+                )}
+                {doorPosition === 'right-bottom' && (
+                  <span className="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                    <DoorOpen className="w-2.5 h-2.5" /> PORTA
+                  </span>
+                )}
+              </div>
+
             </div>
-          </div>
 
-          {/* FUNDO DA SALA */}
-          <div className="w-full max-w-md text-center mt-4">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">
-              --- Fundo da Sala ---
-            </span>
+            {/* PAREDE INFERIOR (FUNDO DA SALA - QUADRO, PORTA OU MESA SE CONFIGURADO NO FUNDO) */}
+            <div className="w-full flex items-center justify-between gap-2 mt-3 pt-2 border-t-2 border-slate-200">
+              {/* Canto Esquerdo Fundo */}
+              <div className="flex items-center gap-1.5 min-w-[90px]">
+                {doorPosition === 'bottom-left' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <DoorOpen className="w-3 h-3" /> PORTA
+                  </span>
+                )}
+                {teacherDeskPosition === 'bottom-left' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROF.
+                  </span>
+                )}
+              </div>
+
+              {/* Centro Fundo */}
+              <div className="flex-1 flex justify-center items-center gap-2">
+                {boardPosition === 'bottom' ? (
+                  <div className="px-4 py-1.5 rounded-xl bg-slate-800 text-white font-extrabold text-[11px] uppercase tracking-widest flex items-center gap-2 shadow-sm border border-slate-700">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>QUADRO / LOUSA (FUNDO)</span>
+                  </div>
+                ) : (
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    --- FUNDO DA SALA ---
+                  </span>
+                )}
+                {teacherDeskPosition === 'bottom-center' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROFESSOR
+                  </span>
+                )}
+              </div>
+
+              {/* Canto Direito Fundo */}
+              <div className="flex items-center justify-end gap-1.5 min-w-[90px]">
+                {doorPosition === 'bottom-right' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <DoorOpen className="w-3 h-3" /> PORTA
+                  </span>
+                )}
+                {teacherDeskPosition === 'bottom-right' && (
+                  <span className="px-2 py-0.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                    <Briefcase className="w-3 h-3" /> MESA PROF.
+                  </span>
+                )}
+              </div>
+            </div>
+
           </div>
 
         </div>
 
-        {/* MODAL / POPUP INLINE PARA INSERIR NOME DO ALUNO AO CLICAR NA CARTEIRA */}
+        {/* POPUP / MODAL INLINE PARA INSERIR NOME DO ALUNO AO CLICAR NA CARTEIRA */}
         {selectedSeat && (
-          <div className="p-4 bg-white border-t border-slate-200 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 animate-fadeIn">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
-                <Edit3 className="w-4 h-4" />
+          <div className="p-3 bg-white border-t border-slate-200 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
+                <Edit3 className="w-3.5 h-3.5" />
               </div>
               <div>
                 <h4 className="text-xs font-black text-slate-800">
-                  Carteira: Fileira {selectedSeat.r + 1}, Coluna {selectedSeat.c + 1} ({selectedClass})
+                  Carteira: F{selectedSeat.r + 1} - C{selectedSeat.c + 1} ({selectedClass})
                 </h4>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[10px] text-slate-500">
                   {canEditLayout
                     ? 'Digite o nome do estudante para alocar nesta carteira'
                     : 'Visualização da carteira selecionada'}
@@ -514,13 +863,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   placeholder="Nome do Estudante..."
                   value={studentInput}
                   onChange={(e) => setStudentInput(e.target.value)}
-                  className="px-3.5 py-2 text-xs font-bold border-2 border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full sm:w-64 bg-slate-50"
+                  className="px-3 py-1.5 text-xs font-bold border-2 border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full sm:w-60 bg-slate-50"
                 />
 
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1 shrink-0 cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>Salvar</span>
@@ -530,19 +879,19 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <button
                     type="button"
                     onClick={handleClearSeat}
-                    className="p-2 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition border border-rose-200"
+                    className="p-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-xl transition border border-rose-200"
                     title="Remover estudante desta carteira"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 )}
 
                 <button
                   type="button"
                   onClick={() => setSelectedSeat(null)}
-                  className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </form>
             ) : (
@@ -553,7 +902,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedSeat(null)}
-                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700"
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
                 >
                   Fechar
                 </button>
@@ -562,13 +911,15 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* RODAPÉ RESUMO */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        {/* RODAPÉ RESUMO COMPACTO */}
+        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
           <div>
-            Total: <strong>{occupiedSeatsCount}</strong> / {totalSeats} carteiras ocupadas • <strong>{totalSeats - occupiedSeatsCount}</strong> livres
+            Total: <strong>{occupiedSeatsCount}</strong> / {totalSeats} ocupadas • <strong>{totalSeats - occupiedSeatsCount}</strong> livres
           </div>
-          <div className="text-[11px] text-slate-400">
-            {assignedRegent ? `Regente: ${assignedRegent.teacherName}` : 'Sem regente definido'}
+          <div className="text-[10px] text-slate-400 flex items-center gap-2">
+            <span>Orientação: Carteiras voltadas para <strong>{deskFacing}</strong></span>
+            <span>•</span>
+            <span>{assignedRegent ? `Regente: ${assignedRegent.teacherName}` : 'Sem regente'}</span>
           </div>
         </div>
 
