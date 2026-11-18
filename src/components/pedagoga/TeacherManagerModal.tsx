@@ -633,13 +633,20 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-0.5">Nome do Docente:</label>
-                      <input
-                        type="text"
-                        required
-                        value={editFullName}
-                        onChange={(e) => setEditFullName(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                      />
+                      <select
+                        value={selectedTeacher.id}
+                        onChange={(e) => {
+                          const t = teachers.find(item => item.id === e.target.value);
+                          if (t) setSelectedTeacher(t);
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs font-bold border-2 border-indigo-400 bg-white text-indigo-900 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none cursor-pointer"
+                      >
+                        {teachers.map(t => (
+                          <option key={t.id} value={t.id}>
+                            {t.full_name} {t.discipline ? `(${t.discipline})` : ''}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
@@ -831,134 +838,6 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                   </div>
                 </div>
               )}
-
-              {/* Input Invisível para o Upload */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={handleScheduleFileUpload}
-                accept=".jpg,.jpeg,.png,.pdf"
-                disabled={uploadingFile}
-              />
-
-              {/* CARD DE UPLOAD DO HORÁRIO */}
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-2xl border border-blue-200">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-bold text-blue-900 flex items-center space-x-2">
-                      <Eye className="w-4 h-4 text-blue-600" />
-                      <span>Grade Horária de {selectedTeacher?.full_name || 'Professor'}</span>
-                    </h4>
-                    <p className="text-xs text-blue-700 mt-0.5">
-                      Envie a imagem (JPG / PNG) ou documento PDF do horário para pré-visualização rápida
-                    </p>
-                  </div>
-
-                  {/* BOTÃO DE UPLOAD DESTACADO E GRANDE */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingFile || !selectedTeacher}
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center space-x-2 flex-shrink-0 disabled:opacity-50"
-                  >
-                    {uploadingFile ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Enviando arquivo...</span>
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud className="w-4 h-4" />
-                        <span>{scheduleFileUrl ? 'Trocar Horário (JPG ou PDF)' : 'Upload do Horário (JPG ou PDF)'}</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* ÁREA DE PRÉ-VISUALIZAÇÃO */}
-                {scheduleFileUrl ? (
-                  <div className="mt-4 bg-white p-4 rounded-xl border border-blue-200 shadow-sm">
-                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100">
-                      <span className="text-xs font-bold text-emerald-700 flex items-center space-x-1.5">
-                        <CheckSquare className="w-4 h-4 text-emerald-600" />
-                        <span>Horário Cadastrado com Sucesso</span>
-                      </span>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-1"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          <span>Substituir</span>
-                        </button>
-
-                        <a
-                          href={scheduleFileUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold px-2.5 py-1 rounded-lg flex items-center space-x-1 transition"
-                        >
-                          <span>Abrir em Tela Cheia</span>
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Exibição se for Imagem (JPG, PNG) */}
-                    {scheduleFileUrl.match(/\.(jpeg|jpg|png|webp)/i) ? (
-                      <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center max-h-[550px]">
-                        <img
-                          src={scheduleFileUrl}
-                          alt="Horário do Professor"
-                          className="object-contain max-h-[550px] w-full rounded-xl"
-                        />
-                      </div>
-                    ) : scheduleFileUrl.match(/\.pdf/i) ? (
-                      /* Exibição se for PDF */
-                      <div className="h-[450px] w-full border border-slate-200 rounded-xl overflow-hidden shadow-inner">
-                        <iframe
-                          src={scheduleFileUrl}
-                          title="Horário em PDF"
-                          className="w-full h-full"
-                        />
-                      </div>
-                    ) : (
-                      <div className="p-8 bg-slate-50 rounded-xl border border-dashed flex items-center justify-center space-x-3 text-slate-700">
-                        <FileText className="w-8 h-8 text-blue-600" />
-                        <div>
-                          <p className="text-xs font-bold">Arquivo de Horário Cadastrado</p>
-                          <a
-                            href={scheduleFileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-blue-600 underline font-semibold mt-0.5 inline-block"
-                          >
-                            Clique aqui para visualizar o documento
-                          </a>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  /* Banner quando ainda não tem horário anexado */
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="mt-4 p-8 text-center border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-2xl bg-white/70 cursor-pointer transition"
-                  >
-                    <UploadCloud className="w-12 h-12 text-blue-400 mx-auto mb-2 animate-bounce" />
-                    <p className="text-sm font-bold text-slate-700">Clique aqui para enviar o horário de aula</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Formatos aceitos: <strong>JPG, PNG ou PDF</strong>
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Fim da Área de Horários */}
-
             </div>
           )}
 
