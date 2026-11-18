@@ -25,6 +25,7 @@ import {
   Compass,
   GripHorizontal,
   RotateCcw,
+  Sliders,
 } from 'lucide-react';
 import {
   classroomService,
@@ -64,6 +65,13 @@ const AVAILABLE_CLASSES = [
 interface CoordPos {
   x: number; // porcentagem (0 a 100)
   y: number; // porcentagem (0 a 100)
+  wall?: 'top' | 'bottom' | 'left' | 'right'; // Para a porta saber a parede encaixada
+}
+
+interface ObjectSizes {
+  boardWidth: number; // porcentagem ou escala (ex: 20 a 70%)
+  teacherDeskScale: number; // escala (0.7 a 1.6)
+  doorScale: number; // escala (0.7 a 1.6)
 }
 
 export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
@@ -82,6 +90,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   // Controle de colapso do menu superior para maximizar área de trabalho
   const [isMenuCollapsed, setIsMenuCollapsed] = useState(false);
+  // Controle de exibição da barra de ajustes de tamanho dos objetos
+  const [showSizeControls, setShowSizeControls] = useState(false);
 
   // Pedagoga: seleção de regente para atribuir
   const [regentTeacherId, setRegentTeacherId] = useState<string>('');
@@ -90,15 +100,22 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const roomAreaRef = useRef<HTMLDivElement>(null);
   const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
 
-  // Posições percentuais dos elementos arrastáveis (drag & drop)
+  // Posições dos elementos arrastáveis (drag & drop)
   const [positions, setPositions] = useState<{
     board: CoordPos;
     teacherDesk: CoordPos;
     door: CoordPos;
   }>({
-    board: { x: 50, y: 4 },
-    teacherDesk: { x: 86, y: 8 },
-    door: { x: 8, y: 6 },
+    board: { x: 50, y: 5 },
+    teacherDesk: { x: 86, y: 12 },
+    door: { x: 10, y: 0, wall: 'top' },
+  });
+
+  // Tamanhos/escalas dos objetos configuráveis
+  const [sizes, setSizes] = useState<ObjectSizes>({
+    boardWidth: 42, // 42% da largura da sala
+    teacherDeskScale: 1.0,
+    doorScale: 1.0,
   });
 
   useEffect(() => {
@@ -112,28 +129,38 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setConfig(data);
   };
 
-  // Carrega posições personalizadas salvas quando muda a turma
+  // Carrega posições e tamanhos personalizados salvos quando muda a turma
   useEffect(() => {
     const layout = config.layouts[selectedClass];
-    // Recupera se houver posições em seats com chaves especiais ou valores padrão
     if (layout?.seats) {
       try {
         const rawCoords = layout.seats['__ELEMENT_COORDS__'];
         if (rawCoords) {
           const parsed = JSON.parse(rawCoords);
           setPositions(parsed);
-          return;
+        } else {
+          setPositions({
+            board: { x: 50, y: 5 },
+            teacherDesk: { x: 86, y: 12 },
+            door: { x: 10, y: 0, wall: 'top' },
+          });
+        }
+      } catch {
+        // ignore
+      }
+
+      try {
+        const rawSizes = layout.seats['__ELEMENT_SIZES__'];
+        if (rawSizes) {
+          const parsedSizes = JSON.parse(rawSizes);
+          setSizes(parsedSizes);
+        } else {
+          setSizes({ boardWidth: 42, teacherDeskScale: 1.0, doorScale: 1.0 });
         }
       } catch {
         // ignore
       }
     }
-    // Fallback padrão se não tiver salvo
-    setPositions({
-      board: { x: 50, y: 5 },
-      teacherDesk: { x: 86, y: 10 },
-      door: { x: 9, y: 8 },
-    });
   }, [selectedClass, config]);
 
   // Verifica se o usuário atual é o regente da turma selecionada
@@ -245,10 +272,14 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     );
     setConfig(updated);
     setIsSaving(false);
-    showToast(`Carteiras direcionadas para: ${facing === 'up' ? 'Cima' : facing === 'down' ? 'Baixo' : facing === 'left' ? 'Esquerda' : 'Direita'}`);
+    showToast(
+      `Carteiras direcionadas para: ${
+        facing === 'up' ? 'Cima' : facing === 'down' ? 'Baixo' : facing === 'left' ? 'Esquerda' : 'Direita'
+      }`
+    );
   };
 
-  // Salvar posições dos elementos arrastados (Drag and Drop)
+  // Salva posições persistindo na tabela/localStorage
   const savePositionsToConfig = async (newPositions: typeof positions) => {
     if (!canEditLayout) return;
     const newSeats = {
@@ -263,7 +294,29 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setConfig(updated);
   };
 
-  // DRAG & DROP NATIVO / POINTER TOUCH HANDLERS
+  // Salva tamanhos dos objetos persistindo
+  const saveSizesToConfig = async (newSizes: ObjectSizes) => {
+    if (!canEditLayout) return;
+    const newSeats = {
+      ...currentLayout.seats,
+      '__ELEMENT_SIZES__': JSON.stringify(newSizes),
+    };
+    const updated = await classroomService.updateClassLayout(
+      selectedClass,
+      { seats: newSeats },
+      currentUser?.full_name || 'Professor Regente'
+    );
+    setConfig(updated);
+  };
+
+  const handleUpdateSize = (key: keyof ObjectSizes, val: number) => {
+    if (!canEditLayout) return;
+    const updated = { ...sizes, [key]: val };
+    setSizes(updated);
+    saveSizesToConfig(updated);
+  };
+
+  // DRAG & DROP NATIVO / POINTER TOUCH HANDLERS COM SNAP NA PAREDE PARA A PORTA
   const startDrag = (item: 'board' | 'teacherDesk' | 'door', e: React.MouseEvent | React.TouchEvent) => {
     if (!canEditLayout) return;
     draggingItemRef.current = item;
@@ -276,12 +329,60 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const updateCoordFromClient = (clientX: number, clientY: number) => {
     if (!draggingItemRef.current || !roomAreaRef.current) return;
     const rect = roomAreaRef.current.getBoundingClientRect();
-    const xClamped = Math.max(5, Math.min(95, ((clientX - rect.left) / rect.width) * 100));
-    const yClamped = Math.max(3, Math.min(96, ((clientY - rect.top) / rect.height) * 100));
+    const rawX = ((clientX - rect.left) / rect.width) * 100;
+    const rawY = ((clientY - rect.top) / rect.height) * 100;
+
+    const currentItem = draggingItemRef.current;
+
+    // Se for a PORTA: Encaixa (snap) perfeitamente na parede mais próxima (0% ou 100%)
+    if (currentItem === 'door') {
+      const distTop = rawY;
+      const distBottom = 100 - rawY;
+      const distLeft = rawX;
+      const distRight = 100 - rawX;
+
+      const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+
+      let snappedX = rawX;
+      let snappedY = rawY;
+      let wall: 'top' | 'bottom' | 'left' | 'right' = 'top';
+
+      if (minDist === distTop) {
+        snappedY = 0; // Encaixa na parede do topo
+        snappedX = Math.max(6, Math.min(94, rawX));
+        wall = 'top';
+      } else if (minDist === distBottom) {
+        snappedY = 100; // Encaixa na parede de baixo
+        snappedX = Math.max(6, Math.min(94, rawX));
+        wall = 'bottom';
+      } else if (minDist === distLeft) {
+        snappedX = 0; // Encaixa na parede da esquerda
+        snappedY = Math.max(6, Math.min(94, rawY));
+        wall = 'left';
+      } else {
+        snappedX = 100; // Encaixa na parede da direita
+        snappedY = Math.max(6, Math.min(94, rawY));
+        wall = 'right';
+      }
+
+      setPositions((prev) => ({
+        ...prev,
+        door: {
+          x: Math.round(snappedX),
+          y: Math.round(snappedY),
+          wall,
+        },
+      }));
+      return;
+    }
+
+    // Para Quadro e Mesa do Professor: movimento livre dentro dos limites da sala
+    const xClamped = Math.max(5, Math.min(95, rawX));
+    const yClamped = Math.max(3, Math.min(96, rawY));
 
     setPositions((prev) => ({
       ...prev,
-      [draggingItemRef.current!]: {
+      [currentItem]: {
         x: Math.round(xClamped),
         y: Math.round(yClamped),
       },
@@ -306,7 +407,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       window.removeEventListener('mouseup', stopDrag);
       window.removeEventListener('touchmove', onDraggingTouch);
       window.removeEventListener('touchend', stopDrag);
-      // Persiste no Supabase / LocalStorage
       setPositions((latest) => {
         savePositionsToConfig(latest);
         return latest;
@@ -317,14 +417,21 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   const handleResetPositions = () => {
     if (!canEditLayout) return;
-    const defaults = {
+    const defaultPos = {
       board: { x: 50, y: 5 },
-      teacherDesk: { x: 86, y: 10 },
-      door: { x: 9, y: 8 },
+      teacherDesk: { x: 86, y: 12 },
+      door: { x: 10, y: 0, wall: 'top' as const },
     };
-    setPositions(defaults);
-    savePositionsToConfig(defaults);
-    showToast('Posições redefinidas para o padrão.');
+    const defaultSizes = {
+      boardWidth: 42,
+      teacherDeskScale: 1.0,
+      doorScale: 1.0,
+    };
+    setPositions(defaultPos);
+    setSizes(defaultSizes);
+    savePositionsToConfig(defaultPos);
+    saveSizesToConfig(defaultSizes);
+    showToast('Posições e tamanhos redefinidos.');
   };
 
   const handleAssignRegent = async () => {
@@ -381,6 +488,10 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     }
   };
 
+  // Formatação visual da porta dependendo de qual parede ela está encaixada
+  const doorWall = positions.door.wall || 'top';
+  const isVerticalDoor = doorWall === 'left' || doorWall === 'right';
+
   if (!isOpen) return null;
 
   return (
@@ -404,7 +515,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-extrabold text-sm sm:text-base leading-tight">
-                  Mapeamento de Sala (Drag & Drop)
+                  Mapeamento de Sala (Drag & Drop + Ajuste de Tamanhos)
                 </h3>
                 <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
                   {selectedClass}
@@ -571,6 +682,23 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 </div>
               )}
 
+              {/* Botão para abrir controles de tamanho dos objetos */}
+              {canEditLayout && (
+                <button
+                  type="button"
+                  onClick={() => setShowSizeControls(!showSizeControls)}
+                  className={`flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold border rounded-lg shadow-2xs transition ${
+                    showSizeControls
+                      ? 'bg-indigo-600 text-white border-indigo-700'
+                      : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50'
+                  }`}
+                  title="Alterar o tamanho do Quadro, Mesa e Porta"
+                >
+                  <Sliders className="w-3 h-3" />
+                  <span>Ajustar Tamanhos</span>
+                </button>
+              )}
+
               {/* Botão de resetar posições de drag and drop */}
               {canEditLayout && (
                 <button
@@ -580,19 +708,74 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   title="Restaurar posições originais do Quadro, Mesa e Porta"
                 >
                   <RotateCcw className="w-3 h-3" />
-                  <span className="hidden sm:inline">Redefinir Posições</span>
+                  <span className="hidden sm:inline">Redefinir</span>
                 </button>
               )}
 
             </div>
 
-            {/* BARRA DE DICA DE DRAG & DROP */}
+            {/* PAINEL DE AJUSTE DE TAMANHOS DOS OBJETOS */}
+            {canEditLayout && showSizeControls && (
+              <div className="p-3 bg-gradient-to-r from-indigo-50 via-sky-50 to-slate-50 border-t border-indigo-100 flex flex-wrap items-center gap-5 text-xs animate-fadeIn">
+                
+                {/* 1. Tamanho do Quadro */}
+                <div className="flex items-center gap-2">
+                  <Monitor className="w-3.5 h-3.5 text-slate-700" />
+                  <span className="font-bold text-slate-700">Largura do Quadro:</span>
+                  <input
+                    type="range"
+                    min="20"
+                    max="80"
+                    step="2"
+                    value={sizes.boardWidth}
+                    onChange={(e) => handleUpdateSize('boardWidth', Number(e.target.value))}
+                    className="w-24 sm:w-32 accent-indigo-600 cursor-pointer"
+                  />
+                  <span className="font-black text-indigo-700 text-[11px]">{sizes.boardWidth}%</span>
+                </div>
+
+                {/* 2. Tamanho da Mesa do Professor */}
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="font-bold text-slate-700">Tamanho da Mesa:</span>
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="1.6"
+                    step="0.1"
+                    value={sizes.teacherDeskScale}
+                    onChange={(e) => handleUpdateSize('teacherDeskScale', Number(e.target.value))}
+                    className="w-20 sm:w-28 accent-amber-600 cursor-pointer"
+                  />
+                  <span className="font-black text-amber-700 text-[11px]">{Math.round(sizes.teacherDeskScale * 100)}%</span>
+                </div>
+
+                {/* 3. Tamanho da Porta */}
+                <div className="flex items-center gap-2">
+                  <DoorOpen className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="font-bold text-slate-700">Tamanho da Porta:</span>
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="1.6"
+                    step="0.1"
+                    value={sizes.doorScale}
+                    onChange={(e) => handleUpdateSize('doorScale', Number(e.target.value))}
+                    className="w-20 sm:w-28 accent-emerald-600 cursor-pointer"
+                  />
+                  <span className="font-black text-emerald-700 text-[11px]">{Math.round(sizes.doorScale * 100)}%</span>
+                </div>
+
+              </div>
+            )}
+
+            {/* BARRA DE DICA DE DRAG & DROP E ENCAIXE NA PAREDE */}
             {canEditLayout && (
               <div className="px-4 py-1.5 bg-sky-50/80 border-t border-sky-100 flex items-center justify-between text-[11px] text-sky-900">
                 <div className="flex items-center gap-1.5 font-medium">
                   <GripHorizontal className="w-3.5 h-3.5 text-sky-600" />
                   <span>
-                    <strong>Arraste e solte livremente:</strong> segure e mova o <strong>Quadro</strong>, a <strong>Mesa do Professor</strong> e a <strong>Porta</strong> para qualquer lugar da sala.
+                    <strong>Arraste livremente:</strong> a <strong>Porta se encaixa magneticamente na parede</strong> mais próxima (topo, fundo ou laterais). O <strong>Quadro</strong> e a <strong>Mesa</strong> podem ser posicionados onde quiser.
                   </span>
                 </div>
               </div>
@@ -646,16 +829,16 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* ÁREA PRINCIPAL DA SALA: DRAG AND DROP CANVAS PARA QUADRO, MESA, PORTA + CARTEIRAS */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 bg-slate-100/70 flex flex-col items-center justify-center min-h-[420px]">
+        {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS ARRASTÁVEIS */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 bg-slate-100/70 flex flex-col items-center justify-center min-h-[420px]">
           
-          {/* CONTAINER DA SALA (CANVAS RELATIVO ONDE ELEMENTOS PODEM SER ARRASTADOS LIVREMENTE) */}
+          {/* PAREDES DA SALA DE AULA: A Porta se encaixa diretamente nas bordas */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-3xl shadow-md border-4 border-slate-300 w-full max-w-4xl p-6 sm:p-8 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px] select-none"
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-6 sm:p-8 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px] select-none"
             style={{ touchAction: 'none' }}
           >
-            {/* ELEMENTO 1: QUADRO / LOUSA (DRAG & DROP) */}
+            {/* ELEMENTO 1: QUADRO / LOUSA (DRAG & DROP + LARGURA AJUSTÁVEL) */}
             <div
               onMouseDown={(e) => startDrag('board', e)}
               onTouchStart={(e) => startDrag('board', e)}
@@ -663,21 +846,22 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 position: 'absolute',
                 left: `${positions.board.x}%`,
                 top: `${positions.board.y}%`,
+                width: `${sizes.boardWidth}%`,
                 transform: 'translate(-50%, -50%)',
                 cursor: canEditLayout ? 'grab' : 'default',
               }}
-              className={`z-20 px-4 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg border-2 border-slate-600 transition-shadow ${
+              className={`z-20 px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg border-2 border-slate-600 transition-shadow ${
                 canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-indigo-400' : ''
               }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro/Lousa' : 'Quadro da sala'}
+              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro. Ajuste o tamanho no menu.' : 'Quadro da sala'}
             >
-              {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 text-slate-400" />}
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <Monitor className="w-3.5 h-3.5 text-sky-400" />
-              <span>QUADRO / LOUSA</span>
+              {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="truncate">QUADRO / LOUSA</span>
             </div>
 
-            {/* ELEMENTO 2: MESA DO PROFESSOR (DRAG & DROP) */}
+            {/* ELEMENTO 2: MESA DO PROFESSOR (DRAG & DROP + ESCALA AJUSTÁVEL) */}
             <div
               onMouseDown={(e) => startDrag('teacherDesk', e)}
               onTouchStart={(e) => startDrag('teacherDesk', e)}
@@ -685,20 +869,21 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 position: 'absolute',
                 left: `${positions.teacherDesk.x}%`,
                 top: `${positions.teacherDesk.y}%`,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) scale(${sizes.teacherDeskScale})`,
+                transformOrigin: 'center center',
                 cursor: canEditLayout ? 'grab' : 'default',
               }}
               className={`z-20 px-3 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg border-2 border-amber-400 transition-shadow ${
                 canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-amber-300' : ''
               }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar a Mesa do Professor' : 'Mesa do Professor'}
+              title={canEditLayout ? 'Clique e arraste para posicionar a Mesa do Professor.' : 'Mesa do Professor'}
             >
               {canEditLayout && <GripHorizontal className="w-3 h-3 text-amber-200" />}
               <Briefcase className="w-3.5 h-3.5 text-white" />
               <span>MESA PROFESSOR</span>
             </div>
 
-            {/* ELEMENTO 3: PORTA DA SALA (DRAG & DROP) */}
+            {/* ELEMENTO 3: PORTA DA SALA (ENCAIXADA NA PAREDE DA SALA) */}
             <div
               onMouseDown={(e) => startDrag('door', e)}
               onTouchStart={(e) => startDrag('door', e)}
@@ -706,17 +891,27 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 position: 'absolute',
                 left: `${positions.door.x}%`,
                 top: `${positions.door.y}%`,
-                transform: 'translate(-50%, -50%)',
+                transform: `translate(-50%, -50%) scale(${sizes.doorScale})`,
                 cursor: canEditLayout ? 'grab' : 'default',
               }}
-              className={`z-20 px-3 py-1.5 rounded-xl bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg border-2 border-emerald-400 transition-shadow ${
-                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-emerald-300' : ''
-              }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar a Porta da Sala' : 'Porta de entrada'}
+              className={`z-30 flex items-center justify-center transition-all ${
+                isVerticalDoor
+                  ? 'w-7 py-3 px-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md'
+                  : 'px-3 py-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md'
+              } ${canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-emerald-400' : ''}`}
+              title={canEditLayout ? 'Arraste a porta pela parede da sala' : 'Porta de entrada'}
             >
-              {canEditLayout && <GripHorizontal className="w-3 h-3 text-emerald-200" />}
-              <DoorOpen className="w-3.5 h-3.5 text-white" />
-              <span>PORTA DA SALA</span>
+              {isVerticalDoor ? (
+                <div className="flex flex-col items-center gap-1 text-[9px] font-black tracking-tighter [writing-mode:vertical-lr]">
+                  <DoorOpen className="w-3.5 h-3.5 text-emerald-200 rotate-90" />
+                  <span>PORTA</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-[10px] font-black tracking-wider">
+                  <DoorOpen className="w-3.5 h-3.5 text-emerald-200" />
+                  <span>PORTA</span>
+                </div>
+              )}
             </div>
 
             {/* GRADE DE CARTEIRAS (CENTRALIZADA E COMPACTA) */}
