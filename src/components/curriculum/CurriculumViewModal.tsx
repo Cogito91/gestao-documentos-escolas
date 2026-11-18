@@ -325,14 +325,14 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !restrictToUserDiscipline) return;
+    if (!isOpen) return;
     let mounted = true;
     (async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !mounted) return;
         setCurrentUserId(user.id);
-        const savedLaunched = localStorage.getItem(`launched_objects_${user.id}`);
+        const savedLaunched = localStorage.getItem(`launched_objects_${user.id}`) || localStorage.getItem('launched_objects_shared');
         if (savedLaunched) {
           try {
             setLaunchedKeys(JSON.parse(savedLaunched));
@@ -371,7 +371,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
     return () => {
       mounted = false;
     };
-  }, [isOpen, restrictToUserDiscipline]);
+  }, [isOpen]);
 
   const handleToggleLaunchedObject = (lineKey: string) => {
     setLaunchedKeys((prev) => {
@@ -380,6 +380,7 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
       if (currentUserId) {
         localStorage.setItem(`launched_objects_${currentUserId}`, JSON.stringify(next));
       }
+      localStorage.setItem('launched_objects_shared', JSON.stringify(next));
       return next;
     });
   };
@@ -1075,13 +1076,9 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
                               <div
                                 key={lineKey}
                                 onClick={() => handleToggleSelectObject(objData)}
-                                onDoubleClick={() => restrictToUserDiscipline && handleToggleLaunchedObject(lineKey)}
-                                onContextMenu={restrictToUserDiscipline ? (e) => handleContextMenu(e, objData) : undefined}
-                                title={
-                                  restrictToUserDiscipline
-                                    ? 'Clique para selecionar • Duplo clique para riscar/marcar como lançado • Botão direito para opções'
-                                    : 'Clique para selecionar'
-                                }
+                                onDoubleClick={() => handleToggleLaunchedObject(lineKey)}
+                                onContextMenu={(e) => handleContextMenu(e, objData)}
+                                title="Clique para selecionar • Duplo clique para riscar/marcar como concluído • Botão direito para opções"
                                 className={`p-2.5 rounded-xl border transition-all duration-150 flex items-start justify-between gap-2.5 cursor-pointer select-none group ${
                                   isPending
                                     ? 'bg-rose-50 border-rose-500 text-rose-950 ring-1 ring-rose-400 shadow-sm font-semibold'
@@ -1173,14 +1170,31 @@ export const CurriculumViewModal: React.FC<CurriculumViewModalProps> = ({
                           </div>
 
                           {/* Descrição da Habilidade CEM Expandida */}
-                          {isHabilidadeOpen && (
-                            <div className="mt-2 p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs text-indigo-950 leading-relaxed animate-fadeIn">
-                              <span className="font-bold text-indigo-900 block mb-0.5">
-                                Habilidade CEM ({item.codigo}):
-                              </span>
-                              {item.habilidade}
-                            </div>
-                          )}
+                          {isHabilidadeOpen && (() => {
+                            const habKey = `hab-${item.id}`;
+                            const isHabLaunched = Boolean(launchedKeys[habKey]);
+                            return (
+                              <div
+                                onDoubleClick={() => handleToggleLaunchedObject(habKey)}
+                                title="Duplo clique para riscar/cortar ou desmarcar esta Habilidade CEM"
+                                className={`mt-2 p-3 rounded-xl text-xs leading-relaxed transition-all cursor-pointer select-none border animate-fadeIn ${
+                                  isHabLaunched
+                                    ? 'bg-emerald-50/50 border-emerald-200 text-slate-400 opacity-70 line-through decoration-2 decoration-emerald-600'
+                                    : 'bg-indigo-50/70 border-indigo-200 text-indigo-950 hover:bg-indigo-50'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <span className={`font-bold block ${isHabLaunched ? 'text-slate-500' : 'text-indigo-900'}`}>
+                                    Habilidade CEM ({item.codigo}):
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-semibold">
+                                    {isHabLaunched ? '✓ Cortada (concluída)' : '2 cliques para cortar'}
+                                  </span>
+                                </div>
+                                <span>{item.habilidade}</span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </td>
                     </tr>
