@@ -62,6 +62,11 @@ const AVAILABLE_CLASSES = [
   'EJA 4ª Etapa A',
 ];
 
+// Converte índice de coluna (0, 1, 2...) para letra de coluna estilo planilha (A, B, C... Z, AA)
+const getColLetter = (index: number): string => {
+  return String.fromCharCode(65 + index);
+};
+
 interface CoordPos {
   x: number; // porcentagem (0 a 100)
   y: number; // porcentagem (0 a 100)
@@ -624,9 +629,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               {/* Matriz (Fileiras x Colunas) */}
               {canEditLayout && (
                 <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
-                  <span className="text-slate-600 text-[11px] font-bold">Grade:</span>
+                  <span className="text-slate-600 text-[11px] font-bold">Matriz:</span>
                   <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
-                    {currentLayout.rows}F × {currentLayout.cols}C
+                    {currentLayout.rows} Linhas × {currentLayout.cols} Colunas ({getColLetter(0)} a {getColLetter(currentLayout.cols - 1)})
                   </span>
                   <button
                     type="button"
@@ -914,66 +919,102 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               )}
             </div>
 
-            {/* GRADE DE CARTEIRAS (CENTRALIZADA E COMPACTA) */}
-            <div className="z-10 my-8 py-3 px-3 bg-slate-50/60 rounded-2xl border border-slate-200 shadow-2xs">
-              <div
-                className="grid gap-1.5 sm:gap-2"
-                style={{
-                  gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
-                }}
-              >
-                {Array.from({ length: currentLayout.rows }).map((_, r) =>
-                  Array.from({ length: currentLayout.cols }).map((_, c) => {
-                    const seatKey = `${r}-${c}`;
-                    const studentName = currentLayout.seats[seatKey];
-                    const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
+            {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
+            <div className="z-10 my-8 py-3 px-4 bg-slate-50/80 rounded-2xl border border-slate-200 shadow-2xs flex flex-col items-center">
+              
+              {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5">
+                <div className="w-5 sm:w-6" /> {/* Espaçador do índice da linha */}
+                <div
+                  className="grid gap-1.5 sm:gap-2"
+                  style={{
+                    gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
+                  }}
+                >
+                  {Array.from({ length: currentLayout.cols }).map((_, c) => (
+                    <div
+                      key={`col-head-${c}`}
+                      className="text-center font-black text-xs text-indigo-800 bg-indigo-100/70 border border-indigo-200/80 rounded-md py-0.5"
+                    >
+                      Coluna {getColLetter(c)}
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                    return (
-                      <div
-                        key={seatKey}
-                        onClick={() => handleSeatClick(r, c)}
-                        className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer ${
-                          isSelected
-                            ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
-                            : studentName
-                            ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
-                            : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
-                        }`}
-                        title={studentName ? `Carteira: ${studentName}` : `Carteira livre (F${r + 1}-C${c + 1})`}
-                      >
-                        {/* Indicador superior com número da fileira/coluna e flecha de direcionamento */}
-                        <div className="flex items-center justify-between text-[9px] font-black text-slate-400 leading-none">
-                          <span className="text-[8px] sm:text-[9px]">F{r + 1}C{c + 1}</span>
-                          <span title={`Carteiras viradas para: ${deskFacing}`}>
-                            {renderFacingIcon()}
-                          </span>
-                        </div>
+              {/* LINHAS: 1, 2, 3... + CARTEIRAS */}
+              <div className="flex flex-col gap-1.5 sm:gap-2">
+                {Array.from({ length: currentLayout.rows }).map((_, r) => (
+                  <div key={`row-container-${r}`} className="flex items-center gap-1.5 sm:gap-2">
+                    {/* Indicador lateral da Linha (1, 2, 3...) */}
+                    <div className="w-5 sm:w-6 h-15 sm:h-16 flex flex-col items-center justify-center font-black text-xs text-slate-700 bg-slate-200/80 border border-slate-300 rounded-lg shrink-0">
+                      <span className="text-[9px] uppercase text-slate-400 leading-none">L</span>
+                      <span className="leading-tight">{r + 1}</span>
+                    </div>
 
-                        {/* Nome do Estudante / Carteira Vazia */}
-                        <div className="flex-1 flex items-center justify-center text-center px-0.5 overflow-hidden">
-                          {studentName ? (
-                            <p className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight line-clamp-2">
-                              {studentName}
-                            </p>
-                          ) : (
-                            <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-slate-600">
-                              {canEditLayout ? '+ Aluno' : 'Livre'}
-                            </span>
-                          )}
-                        </div>
+                    {/* Carteiras da Linha r */}
+                    <div
+                      className="grid gap-1.5 sm:gap-2"
+                      style={{
+                        gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
+                      }}
+                    >
+                      {Array.from({ length: currentLayout.cols }).map((_, c) => {
+                        const seatKey = `${r}-${c}`;
+                        const studentName = currentLayout.seats[seatKey];
+                        const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
+                        const seatCoordLabel = `${getColLetter(c)}${r + 1}`; // Ex: A1, B1, C2
 
-                        {/* Marcador decorativo de carteira com status */}
-                        <div className="w-full flex items-center justify-center">
+                        return (
                           <div
-                            className={`w-full h-1 rounded-full ${
-                              studentName ? 'bg-indigo-500' : 'bg-slate-200'
+                            key={seatKey}
+                            onClick={() => handleSeatClick(r, c)}
+                            className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer ${
+                              isSelected
+                                ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
+                                : studentName
+                                ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
+                                : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
                             }`}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+                            title={studentName ? `Carteira ${seatCoordLabel} (Linha ${r + 1}, Coluna ${getColLetter(c)}): ${studentName}` : `Carteira livre (${seatCoordLabel})`}
+                          >
+                            {/* Indicador superior com Linha/Coluna no padrão Linha 1, Coluna A */}
+                            <div className="flex items-center justify-between text-[9px] font-black text-slate-500 leading-none">
+                              <span className="px-1 py-0.2 bg-slate-100 rounded text-slate-700 font-extrabold text-[8px] sm:text-[9px]">
+                                {seatCoordLabel}
+                              </span>
+                              <span title={`Carteiras viradas para: ${deskFacing}`}>
+                                {renderFacingIcon()}
+                              </span>
+                            </div>
+
+                            {/* Nome do Estudante / Carteira Vazia */}
+                            <div className="flex-1 flex items-center justify-center text-center px-0.5 overflow-hidden">
+                              {studentName ? (
+                                <p className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight line-clamp-2">
+                                  {studentName}
+                                </p>
+                              ) : (
+                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-slate-600">
+                                  {canEditLayout ? '+ Aluno' : 'Livre'}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Marcador decorativo de carteira com status */}
+                            <div className="w-full flex items-center justify-center">
+                              <div
+                                className={`w-full h-1 rounded-full ${
+                                  studentName ? 'bg-indigo-500' : 'bg-slate-200'
+                                }`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -997,7 +1038,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               </div>
               <div>
                 <h4 className="text-xs font-black text-slate-800">
-                  Carteira: F{selectedSeat.r + 1} - C{selectedSeat.c + 1} ({selectedClass})
+                  Carteira: {getColLetter(selectedSeat.c)}{selectedSeat.r + 1} (Linha {selectedSeat.r + 1}, Coluna {getColLetter(selectedSeat.c)}) • {selectedClass}
                 </h4>
                 <p className="text-[10px] text-slate-500">
                   {canEditLayout
