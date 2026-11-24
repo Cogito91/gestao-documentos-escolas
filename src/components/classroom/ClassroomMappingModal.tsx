@@ -1444,62 +1444,28 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* MODAL / PAINEL COMPLETO DO ALUNO: OBSERVAÇÕES & OCORRÊNCIAS */}
+        {/* PAINEL LIMPO DO ALUNO: NOME + REGISTRAR OCORRÊNCIA + HISTÓRICO DE OCORRÊNCIAS */}
         {activeStudentModal && (
           <div className="p-3 bg-white border-t border-slate-200 shadow-2xl flex flex-col gap-2 shrink-0 animate-fadeIn max-h-[38vh] overflow-y-auto">
             
-            {/* TOPO DO PAINEL DO ALUNO */}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-indigo-100 text-indigo-700 rounded-xl">
+            {/* CABEÇALHO LIMPO: APENAS NOME DO ALUNO, BOTÃO REGISTRAR OCORRÊNCIA E FECHAR */}
+            <div className="flex items-center justify-between gap-2 border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
                   <UserCheck className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-black text-slate-900">
-                      {activeStudentModal.name}
-                    </h4>
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-extrabold text-[10px] border border-indigo-200">
-                      Carteira {activeStudentModal.seatCoord} (L{activeStudentModal.r + 1} • Coluna {getColLetter(activeStudentModal.c)})
-                    </span>
-                    <span className="text-[10px] bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded">
-                      {selectedClass}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Histórico pedagógico, anotações de comportamento e ocorrências disciplinares
-                  </p>
-                </div>
+                <h4 className="text-sm font-black text-slate-900 leading-tight">
+                  {activeStudentModal.name}
+                </h4>
               </div>
 
               <div className="flex items-center gap-2">
-                {/* Botão de Trocar de Lugar (Especialmente útil e direto no celular) */}
-                {canEditLayout && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedSeatToMove({
-                        r: activeStudentModal.r,
-                        c: activeStudentModal.c,
-                        studentName: activeStudentModal.name,
-                      });
-                      setActiveStudentModal(null);
-                      showToast(`Selecione a carteira de destino para mover ${activeStudentModal.name}`);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
-                    title="Mover este aluno para outra carteira"
-                  >
-                    <ArrowLeftRight className="w-3.5 h-3.5" />
-                    <span>Trocar de Lugar</span>
-                  </button>
-                )}
-
-                {/* Botão de Lançar Nova Ocorrência Oficial */}
+                {/* Botão de Lançar Nova Ocorrência */}
                 <button
                   type="button"
                   onClick={() => setIsOccurrenceModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
-                  title="Criar nova ocorrência disciplinar para este estudante"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                  title="Registrar nova ocorrência para este estudante"
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Registrar Ocorrência</span>
@@ -1511,160 +1477,71 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                     setActiveStudentModal(null);
                     setSelectedSeat(null);
                   }}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 cursor-pointer"
+                  title="Fechar painel do aluno"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* ABAS: OBSERVAÇÕES PEDAGÓGICAS vs TODAS AS OCORRÊNCIAS */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('observations')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
-                  activeTab === 'observations'
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Observações Pedagógicas ({getStudentObservations(activeStudentModal.name).length})</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('occurrences')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition ${
-                  activeTab === 'occurrences'
-                    ? 'bg-rose-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Ocorrências Disciplinares ({getStudentOccurrences(activeStudentModal.name).length})</span>
-              </button>
-            </div>
-
-            {/* CONTEÚDO DA ABA 1: OBSERVAÇÕES PEDAGÓGICAS */}
-            {activeTab === 'observations' && (
-              <div className="space-y-3">
-                {/* Formulário para adicionar nova observação */}
-                <form onSubmit={handleAddObservation} className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newObservationText}
-                    onChange={(e) => setNewObservationText(e.target.value)}
-                    placeholder="Adicione uma observação rápida (ex: aluno com dificuldade visual, sentar na frente, etc)..."
-                    className="flex-1 px-3 py-2 text-xs border border-amber-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none bg-amber-50/40"
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newObservationText.trim() || isSaving}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1 shrink-0"
+            {/* LISTAGEM DIRETA DE OCORRÊNCIAS DO ALUNO (SEM ABAS OU POLUIÇÃO VISUAL) */}
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {getStudentOccurrences(activeStudentModal.name).length === 0 ? (
+                <div className="text-center py-3 bg-emerald-50 rounded-xl border border-emerald-200">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 mx-auto mb-1" />
+                  <p className="text-xs font-bold text-emerald-900">
+                    Nenhuma ocorrência registrada para este estudante!
+                  </p>
+                  <p className="text-[10px] text-emerald-700">
+                    O aluno está sem registros disciplinares no sistema.
+                  </p>
+                </div>
+              ) : (
+                getStudentOccurrences(activeStudentModal.name).map((occ) => (
+                  <div
+                    key={occ.id}
+                    className="p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl flex flex-col gap-1 text-xs"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Adicionar Observação</span>
-                  </button>
-                </form>
-
-                {/* Lista de observações registradas */}
-                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
-                  {getStudentObservations(activeStudentModal.name).length === 0 ? (
-                    <p className="text-xs text-slate-400 italic py-2 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                      Nenhuma observação registrada para este aluno ainda.
-                    </p>
-                  ) : (
-                    getStudentObservations(activeStudentModal.name).map((obs) => (
-                      <div
-                        key={obs.id}
-                        className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start justify-between gap-2 text-xs"
-                      >
-                        <div className="space-y-0.5">
-                          <p className="font-semibold text-slate-800 leading-snug">{obs.text}</p>
-                          <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                            <span>Registrado por: <strong>{obs.authorName}</strong></span>
-                            <span>•</span>
-                            <span>{new Date(obs.createdAt).toLocaleString('pt-BR')}</span>
-                          </div>
-                        </div>
-                        {canEditLayout && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteObservation(obs.id)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                            title="Excluir observação"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-black text-rose-900 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>{occ.title || 'Ocorrência Disciplinar'}</span>
+                      </span>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 shrink-0">
+                        {occ.occurrence_date && (
+                          <span className="flex items-center gap-1 font-bold text-slate-700">
+                            <Calendar className="w-3 h-3 text-slate-400" />
+                            {occ.occurrence_date.split('-').reverse().join('/')}
+                          </span>
+                        )}
+                        {occ.occurrence_time_slot && (
+                          <span className="px-1.5 py-0.2 bg-white rounded border border-rose-200 text-rose-800 font-bold">
+                            {occ.occurrence_time_slot}
+                          </span>
                         )}
                       </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* CONTEÚDO DA ABA 2: TODAS AS OCORRÊNCIAS DISCIPLINARES */}
-            {activeTab === 'occurrences' && (
-              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                {getStudentOccurrences(activeStudentModal.name).length === 0 ? (
-                  <div className="text-center py-4 bg-emerald-50 rounded-xl border border-emerald-200">
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-                    <p className="text-xs font-bold text-emerald-900">
-                      Nenhuma ocorrência registrada para este estudante!
-                    </p>
-                    <p className="text-[10px] text-emerald-700">
-                      O aluno está sem registros disciplinares no sistema.
-                    </p>
-                  </div>
-                ) : (
-                  getStudentOccurrences(activeStudentModal.name).map((occ) => (
-                    <div
-                      key={occ.id}
-                      className="p-2.5 bg-rose-50/70 border border-rose-200 rounded-xl flex flex-col gap-1 text-xs"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-black text-rose-900 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                          <span>{occ.title || 'Ocorrência Disciplinar'}</span>
-                        </span>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                          {occ.occurrence_date && (
-                            <span className="flex items-center gap-1 font-bold text-slate-700">
-                              <Calendar className="w-3 h-3 text-slate-400" />
-                              {occ.occurrence_date.split('-').reverse().join('/')}
-                            </span>
-                          )}
-                          {occ.occurrence_time_slot && (
-                            <span className="px-1.5 py-0.2 bg-white rounded border border-rose-200 text-rose-800 font-bold">
-                              {occ.occurrence_time_slot}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Motivo e ação tomada */}
-                      <p className="text-slate-800 text-[11px] font-medium leading-relaxed">
-                        {occ.description || 'Sem descrição.'}
-                      </p>
-
-                      {occ.action_taken && (
-                        <div className="text-[10px] text-rose-700 bg-white/80 px-2 py-0.5 rounded border border-rose-100 flex items-center gap-1">
-                          <strong>Ação Adotada:</strong> {occ.action_taken}
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-rose-100">
-                        <span>Professor: {occ.teacher?.full_name || 'Docente'}</span>
-                        <span>{new Date(occ.submitted_at || occ.updated_at).toLocaleDateString('pt-BR')}</span>
-                      </div>
                     </div>
-                  ))
-                )}
-              </div>
-            )}
+
+                    {/* Motivo e ação tomada */}
+                    <p className="text-slate-800 text-[11px] font-medium leading-relaxed">
+                      {occ.description || 'Sem descrição.'}
+                    </p>
+
+                    {occ.action_taken && (
+                      <div className="text-[10px] text-rose-700 bg-white/80 px-2 py-0.5 rounded border border-rose-100 flex items-center gap-1">
+                        <strong>Ação Adotada:</strong> {occ.action_taken}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-rose-100">
+                      <span>Professor: {occ.teacher?.full_name || 'Docente'}</span>
+                      <span>{new Date(occ.submitted_at || occ.updated_at).toLocaleDateString('pt-BR')}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
 
           </div>
         )}
