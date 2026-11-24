@@ -1482,28 +1482,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             showToast('Ocorrência registrada e atualizada no histórico do aluno!');
           }}
           suggestedClasses={[selectedClass]}
-          editingDocument={{
-            id: '',
-            teacher_id: currentUser?.id || '',
-            category_id: null,
-            folder_id: null,
-            title: `${activeStudentModal.name} • ${selectedClass}`,
-            description: '',
-            file_url: 'ocorrencia://registro-interno',
-            file_name: 'Registro de Ocorrência',
-            file_size: 0,
-            file_type: 'text/plain',
-            status: 'aprovado',
-            feedback: null,
-            reviewed_by: null,
-            reviewed_at: null,
-            submitted_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            student_name: activeStudentModal.name,
-            target_classes: selectedClass,
-            occurrence_date: new Date().toISOString().slice(0, 10),
-            occurrence_time_slot: '1º Tempo',
-          } as unknown as SchoolDocument}
+          initialStudentName={activeStudentModal.name}
+          editingDocument={null}
         />
       )}
     </div>

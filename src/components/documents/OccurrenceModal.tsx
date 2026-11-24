@@ -10,6 +10,7 @@ interface OccurrenceModalProps {
   onClose: () => void;
   onSuccess: () => void;
   suggestedClasses?: string[];
+  initialStudentName?: string;
   editingDocument?: SchoolDocument | null;
 }
 
@@ -42,6 +43,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
   onClose,
   onSuccess,
   suggestedClasses = [],
+  initialStudentName = '',
   editingDocument,
 }) => {
   const { user } = useAuth();
@@ -60,7 +62,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
     setError(null);
-    if (editingDocument) {
+    if (editingDocument && editingDocument.id) {
       setStudentName(editingDocument.student_name || '');
       setTargetClasses(editingDocument.target_classes || '');
       setOccurrenceDate(
@@ -95,7 +97,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
         setCustomAction(savedAction === 'Outros' ? '' : savedAction);
       }
     } else {
-      setStudentName('');
+      setStudentName(initialStudentName || '');
       setTargetClasses(suggestedClasses[0] || '');
       setOccurrenceDate(new Date().toISOString().slice(0, 10));
       setOccurrenceTimeSlot('1º Tempo');
@@ -105,7 +107,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
       setActionOption('Advertência verbal');
       setCustomAction('');
     }
-  }, [isOpen, editingDocument, suggestedClasses]);
+  }, [isOpen, editingDocument, suggestedClasses, initialStudentName]);
 
   if (!isOpen) return null;
 
@@ -159,7 +161,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
 
       const title = `${studentName.trim()} • ${targetClasses.trim()} (${occurrenceTimeSlot})`;
 
-      if (editingDocument) {
+      if (editingDocument && editingDocument.id) {
         await documentService.updateDocument(editingDocument.id, {
           title,
           description: encodedDescription,
@@ -199,7 +201,7 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-800 text-base">
-                {editingDocument ? 'Editar Ocorrência de Aluno' : 'Lançar Ocorrência em Sala'}
+                {editingDocument?.id ? 'Editar Ocorrência de Aluno' : 'Lançar Ocorrência em Sala'}
               </h3>
               <p className="text-xs text-slate-500">
                 Registre ocorrências por turma e a ação tomada
