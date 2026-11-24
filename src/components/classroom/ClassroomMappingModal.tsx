@@ -135,9 +135,36 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const roomAreaRef = useRef<HTMLDivElement>(null);
   const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
 
-  // Drag and Drop de Alunos entre Carteiras
+  // Detecção de dispositivo móvel / touch
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0)) {
+      setIsTouchDevice(true);
+    }
+  }, []);
+
+  // Drag and Drop de Alunos entre Carteiras (Desktop e Mobile)
   const [draggedSeat, setDraggedSeat] = useState<{ r: number; c: number; studentName: string } | null>(null);
   const [dropTargetSeat, setDropTargetSeat] = useState<{ r: number; c: number } | null>(null);
+
+  // Drag and Drop por Touch de Alunos no Celular
+  const [touchDrag, setTouchDrag] = useState<{
+    r: number;
+    c: number;
+    studentName: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const touchStartRef = useRef<{
+    r: number;
+    c: number;
+    studentName: string;
+    startX: number;
+    startY: number;
+    startTime: number;
+    isDragging: boolean;
+  } | null>(null);
 
   // Modo móvel: Seleção de aluno para trocar de lugar com 1 toque
   const [selectedSeatToMove, setSelectedSeatToMove] = useState<{ r: number; c: number; studentName: string } | null>(null);
@@ -148,9 +175,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     teacherDesk: CoordPos;
     door: CoordPos;
   }>({
-    board: { x: 50, y: 5 },
-    teacherDesk: { x: 86, y: 12 },
-    door: { x: 10, y: 0, wall: 'top' },
+    board: { x: 50, y: 7 },
+    teacherDesk: { x: 84, y: 11 },
+    door: { x: 8, y: 0, wall: 'top' },
   });
 
   // Tamanhos/escalas dos objetos configuráveis
@@ -388,6 +415,100 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     setDropTargetSeat(null);
   };
 
+  // TOUCH HANDLERS PARA ARRASTAR ALUNOS NO CELULAR
+  const handleSeatTouchStart = (
+    e: React.TouchEvent,
+    r: number,
+    c: number,
+    studentName?: string
+  ) => {
+    if (!canEditLayout || !studentName) return;
+    const touch = e.touches[0];
+    touchStartRef.current = {
+      r,
+      c,
+      studentName,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      startTime: Date.now(),
+      isDragging: false,
+    };
+  };
+
+  const handleSeatTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartRef.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartRef.current.startX;
+    const dy = touch.clientY - touchStartRef.current.startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    // Se moveu mais de 12px, ativa o arrasto do aluno
+    if (dist > 12) {
+      touchStartRef.current.isDragging = true;
+      if (e.cancelable) e.preventDefault();
+
+      setTouchDrag({
+        r: touchStartRef.current.r,
+        c: touchStartRef.current.c,
+        studentName: touchStartRef.current.studentName,
+        x: touch.clientX,
+        y: touch.clientY,
+      });
+
+      // Identifica a carteira sob a ponta do dedo usando elementFromPoint
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const seatElem = elem?.closest('[data-seat]');
+      if (seatElem) {
+        const rawSeat = seatElem.getAttribute('data-seat');
+        if (rawSeat) {
+          const [targetR, targetC] = rawSeat.split('-').map(Number);
+          setDropTargetSeat({ r: targetR, c: targetC });
+        }
+      } else {
+        setDropTargetSeat(null);
+      }
+    }
+  };
+
+  const handleSeatTouchEnd = (e: React.TouchEvent, r: number, c: number) => {
+    if (!touchStartRef.current) return;
+    const wasDragging = touchStartRef.current.isDragging;
+    const source = {
+      r: touchStartRef.current.r,
+      c: touchStartRef.current.c,
+      studentName: touchStartRef.current.studentName,
+    };
+
+    touchStartRef.current = null;
+    setTouchDrag(null);
+
+    if (wasDragging) {
+      if (e.cancelable) e.preventDefault();
+      const touch = e.changedTouches[0];
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const seatElem = elem?.closest('[data-seat]');
+      if (seatElem) {
+        const rawSeat = seatElem.getAttribute('data-seat');
+        if (rawSeat) {
+          const [targetR, targetC] = rawSeat.split('-').map(Number);
+          handleSwapSeats(source, { r: targetR, c: targetC });
+        }
+      } else if (dropTargetSeat) {
+        handleSwapSeats(source, dropTargetSeat);
+      }
+      setDropTargetSeat(null);
+    } else {
+      // Toque rápido sem arrastar: seleciona a carteira
+      handleSeatClick(r, c);
+    }
+  };
+
+  const handleSeatTouchCancel = () => {
+    touchStartRef.current = null;
+    setTouchDrag(null);
+    setDropTargetSeat(null);
+  };
+
   const handleAddObservation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeStudentModal || !newObservationText.trim()) return;
@@ -498,6 +619,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   // DRAG & DROP NATIVO / POINTER TOUCH HANDLERS COM SNAP NA PAREDE PARA A PORTA
   const startDrag = (item: 'board' | 'teacherDesk' | 'door', e: React.MouseEvent | React.TouchEvent) => {
     if (!canEditLayout) return;
+    e.stopPropagation();
     draggingItemRef.current = item;
     window.addEventListener('mousemove', onDragging);
     window.addEventListener('mouseup', stopDrag);
@@ -575,6 +697,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   const onDraggingTouch = (e: TouchEvent) => {
     if (e.touches.length > 0) {
+      if (e.cancelable) e.preventDefault();
       updateCoordFromClient(e.touches[0].clientX, e.touches[0].clientY);
     }
   };
@@ -597,9 +720,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const handleResetPositions = () => {
     if (!canEditLayout) return;
     const defaultPos = {
-      board: { x: 50, y: 5 },
-      teacherDesk: { x: 86, y: 12 },
-      door: { x: 10, y: 0, wall: 'top' as const },
+      board: { x: 50, y: 7 },
+      teacherDesk: { x: 84, y: 11 },
+      door: { x: 8, y: 0, wall: 'top' as const },
     };
     const defaultSizes = {
       boardWidth: 42,
@@ -1011,47 +1134,88 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             </div>
           )}
 
-          {/* PAREDES DA SALA DE AULA */}
+          {/* PAREDES DA SALA DE AULA COM SUPORTE TOTAL A DRAG & DROP DE OBJETOS */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-2 sm:p-5 flex flex-col items-center select-none"
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl pt-20 sm:pt-24 pb-6 px-2 sm:px-4 flex flex-col items-center select-none min-h-[440px]"
           >
-            {/* TAG DA PORTA (Integrada com margem limpa para a Coluna A e L1 nunca ficarem cobertas) */}
-            <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider shadow-xs">
-                <DoorOpen className="w-4 h-4 text-emerald-200" />
-                <span>PORTA DE ENTRADA</span>
-              </div>
-
-              {/* Centro: QUADRO / LOUSA */}
-              <div
-                style={{ width: `${sizes.boardWidth}%`, minWidth: '180px' }}
-                className="px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border-2 border-slate-600 transition-all"
-                title="Quadro / Lousa da sala"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-                <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                <span className="truncate">QUADRO / LOUSA</span>
-              </div>
-
-              {/* Lado Direito: MESA DO PROFESSOR */}
-              <div
-                style={{
-                  transform: `scale(${sizes.teacherDeskScale})`,
-                  transformOrigin: 'right center',
-                }}
-                className="px-2.5 py-1 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm border-2 border-amber-400 shrink-0 transition-transform"
-                title="Mesa do Professor"
-              >
-                <Briefcase className="w-3.5 h-3.5 text-white" />
-                <span>MESA PROFESSOR</span>
-              </div>
+            {/* PORTA DE ENTRADA ARRASTÁVEL COM SNAP MAGNÉTICO NA PAREDE */}
+            <div
+              onMouseDown={(e) => startDrag('door', e)}
+              onTouchStart={(e) => startDrag('door', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.door.x}%`,
+                top: `${positions.door.y}%`,
+                transform:
+                  doorWall === 'left'
+                    ? 'translate(-50%, -50%) rotate(-90deg)'
+                    : doorWall === 'right'
+                    ? 'translate(-50%, -50%) rotate(90deg)'
+                    : 'translate(-50%, -50%)',
+                transformOrigin: 'center center',
+                touchAction: 'none',
+              }}
+              className={`z-30 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-emerald-400 select-none ${
+                canEditLayout ? 'cursor-move active:scale-95 hover:border-emerald-300' : 'cursor-default'
+              }`}
+              title="Porta de Entrada (Arraste para fixar em qualquer parede da sala)"
+            >
+              <DoorOpen className="w-3.5 h-3.5 text-emerald-200" />
+              <span>PORTA</span>
+              {canEditLayout && <GripHorizontal className="w-3 h-3 opacity-70 ml-0.5 shrink-0" />}
             </div>
 
-            {/* CONTAINER COM SCROLL HORIZONTAL SUAVE PARA O GRID DE CARTEIRAS */}
-            <div className="w-full overflow-x-auto pb-2 flex justify-start sm:justify-center">
+            {/* QUADRO / LOUSA ARRASTÁVEL */}
+            <div
+              onMouseDown={(e) => startDrag('board', e)}
+              onTouchStart={(e) => startDrag('board', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.board.x}%`,
+                top: `${positions.board.y}%`,
+                transform: 'translate(-50%, -50%)',
+                width: `${sizes.boardWidth}%`,
+                minWidth: '160px',
+                maxWidth: '92%',
+                touchAction: 'none',
+              }}
+              className={`z-20 px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-md border-2 border-slate-600 select-none ${
+                canEditLayout ? 'cursor-move active:scale-95 hover:border-sky-400' : 'cursor-default'
+              }`}
+              title="Quadro / Lousa (Arraste para mover na sala)"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span className="truncate">QUADRO / LOUSA</span>
+              {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 opacity-60 ml-1 shrink-0" />}
+            </div>
+
+            {/* MESA DO PROFESSOR ARRASTÁVEL */}
+            <div
+              onMouseDown={(e) => startDrag('teacherDesk', e)}
+              onTouchStart={(e) => startDrag('teacherDesk', e)}
+              style={{
+                position: 'absolute',
+                left: `${positions.teacherDesk.x}%`,
+                top: `${positions.teacherDesk.y}%`,
+                transform: `translate(-50%, -50%) scale(${sizes.teacherDeskScale})`,
+                touchAction: 'none',
+              }}
+              className={`z-20 px-2.5 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-amber-400 select-none ${
+                canEditLayout ? 'cursor-move active:scale-95 hover:border-amber-300' : 'cursor-default'
+              }`}
+              title="Mesa do Professor (Arraste para mover na sala)"
+            >
+              <Briefcase className="w-3.5 h-3.5 text-white" />
+              <span>MESA PROFESSOR</span>
+              {canEditLayout && <GripHorizontal className="w-3 h-3 opacity-70 ml-0.5 shrink-0" />}
+            </div>
+
+            {/* CONTAINER COM SCROLL HORIZONTAL SUAVE - NUNCA CORTA A COLUNA A */}
+            <div className="w-full overflow-x-auto pb-3 px-1">
               {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
-              <div className="z-10 py-2 px-2 sm:px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs inline-flex flex-col items-center min-w-max">
+              <div className="w-max mx-auto py-2 px-2 sm:px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs flex flex-col items-center">
                 
                 {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
                 <div className="flex items-center gap-1.5 mb-1.5">
@@ -1101,7 +1265,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                           const studentObsCount = studentName ? getStudentObservations(studentName).length : 0;
 
                           const isBeingDragged =
-                            draggedSeat?.r === r && draggedSeat?.c === c;
+                            (draggedSeat?.r === r && draggedSeat?.c === c) ||
+                            (touchDrag?.r === r && touchDrag?.c === c);
                           const isDropTarget =
                             dropTargetSeat?.r === r && dropTargetSeat?.c === c;
                           const isSelectedToMove =
@@ -1110,7 +1275,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                           return (
                             <div
                               key={seatKey}
-                              draggable={Boolean(canEditLayout && studentName)}
+                              data-seat={`${r}-${c}`}
+                              draggable={Boolean(!isTouchDevice && canEditLayout && studentName)}
                               onDragStart={(e) => {
                                 if (!canEditLayout || !studentName) return;
                                 setDraggedSeat({ r, c, studentName });
@@ -1139,6 +1305,10 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                                 setDraggedSeat(null);
                                 setDropTargetSeat(null);
                               }}
+                              onTouchStart={(e) => handleSeatTouchStart(e, r, c, studentName)}
+                              onTouchMove={handleSeatTouchMove}
+                              onTouchEnd={(e) => handleSeatTouchEnd(e, r, c)}
+                              onTouchCancel={handleSeatTouchCancel}
                               onClick={() => handleSeatClick(r, c)}
                               onDoubleClick={() => handleSeatDoubleClick(r, c)}
                               className={`h-14 p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative min-w-[72px] ${
@@ -1240,6 +1410,24 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
 
         </div>
+
+        {/* PREVIEW FLUTUANTE DO ALUNO SENDO ARRASTADO NO TOUCH (CELULAR) */}
+        {touchDrag && (
+          <div
+            style={{
+              position: 'fixed',
+              left: `${touchDrag.x}px`,
+              top: `${touchDrag.y - 28}px`,
+              transform: 'translate(-50%, -100%)',
+              pointerEvents: 'none',
+              zIndex: 9999,
+            }}
+            className="bg-indigo-700 text-white px-3 py-1.5 rounded-xl shadow-2xl border-2 border-white flex items-center gap-1.5 text-xs font-black animate-pulse"
+          >
+            <Users className="w-3.5 h-3.5 text-amber-300" />
+            <span>{touchDrag.studentName}</span>
+          </div>
+        )}
 
         {/* MODAL / PAINEL COMPLETO DO ALUNO: OBSERVAÇÕES & OCORRÊNCIAS */}
         {activeStudentModal && (
