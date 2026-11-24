@@ -1152,7 +1152,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           {/* PAREDES DA SALA DE AULA COM SUPORTE TOTAL A DRAG & DROP DE OBJETOS */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl pt-20 sm:pt-24 pb-6 px-2 sm:px-4 flex flex-col items-center select-none min-h-[440px]"
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-fit max-w-full mx-auto pt-14 pb-2.5 px-2.5 sm:px-3 flex flex-col items-center select-none"
           >
             {/* PORTA DE ENTRADA ARRASTÁVEL COM SNAP MAGNÉTICO NA PAREDE */}
             <div
@@ -1228,7 +1228,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             </div>
 
             {/* CONTAINER COM SCROLL HORIZONTAL SUAVE - NUNCA CORTA A COLUNA A */}
-            <div className="w-full overflow-x-auto pb-3 px-1">
+            <div className="w-full overflow-x-auto pb-1 px-0.5">
               {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
               <div className="w-max mx-auto py-2 px-2 sm:px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs flex flex-col items-center">
                 
@@ -1416,7 +1416,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             </div>
 
             {/* MARCADOR DE FUNDO DA SALA */}
-            <div className="w-full text-center mt-3 pt-2 border-t border-slate-200">
+            <div className="w-full text-center mt-2 pt-1.5 border-t border-slate-200">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 — PAREDE DE FUNDO DA SALA —
               </span>
