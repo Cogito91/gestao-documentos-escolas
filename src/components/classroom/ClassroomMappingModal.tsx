@@ -258,8 +258,28 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     const studentName = currentLayout.seats[seatKey] || '';
     const seatCoord = `${getColLetter(c)}${r + 1}`;
 
-    // Se a carteira já tem aluno alocado: Abre painel de perfil do aluno (Observações + Ocorrências)
+    setSelectedSeat({ r, c });
+    setStudentInput(studentName);
+
+    // Se tiver aluno e estiver no painel aberto, apenas atualiza seleção
+    if (studentName && activeStudentModal) {
+      setActiveStudentModal({
+        name: studentName,
+        seatCoord,
+        r,
+        c,
+      });
+    }
+  };
+
+  // Clique duplo específico no aluno da carteira: abre direto o relatório de ocorrências
+  const handleSeatDoubleClick = (r: number, c: number) => {
+    const seatKey = `${r}-${c}`;
+    const studentName = currentLayout.seats[seatKey] || '';
+    const seatCoord = `${getColLetter(c)}${r + 1}`;
+
     if (studentName) {
+      setActiveTab('occurrences'); // Abre direto na aba de ocorrências
       setActiveStudentModal({
         name: studentName,
         seatCoord,
@@ -268,10 +288,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       });
       setSelectedSeat({ r, c });
       setStudentInput(studentName);
-    } else {
-      // Se a carteira está livre: abre campo para digitar o nome
-      setSelectedSeat({ r, c });
-      setStudentInput('');
     }
   };
 
@@ -1071,6 +1087,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                           <div
                             key={seatKey}
                             onClick={() => handleSeatClick(r, c)}
+                            onDoubleClick={() => handleSeatDoubleClick(r, c)}
                             className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
                               isSelected
                                 ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
