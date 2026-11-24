@@ -974,12 +974,12 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         )}
 
         {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS ARRASTÁVEIS */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-4 sm:p-6 bg-slate-100/70 flex flex-col items-center justify-center min-h-[420px]">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-3 bg-slate-100/70 flex flex-col items-center justify-center">
           
           {/* PAREDES DA SALA DE AULA */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-6 sm:p-8 flex flex-col items-center justify-center min-h-[380px] sm:min-h-[440px] select-none"
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-3xl p-3 sm:p-4 flex flex-col items-center justify-center select-none"
             style={{ touchAction: 'none' }}
           >
             {/* ELEMENTO 1: QUADRO / LOUSA */}
@@ -1059,43 +1059,43 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             </div>
 
             {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
-            <div className="z-10 my-8 py-3 px-4 bg-slate-50/80 rounded-2xl border border-slate-200 shadow-2xs flex flex-col items-center">
+            <div className="z-10 my-4 py-2 px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs flex flex-col items-center">
               
               {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
-              <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5">
-                <div className="w-5 sm:w-6" />
+              <div className="flex items-center gap-1 sm:gap-1.5 mb-1">
+                <div className="w-4 sm:w-5" />
                 <div
-                  className="grid gap-1.5 sm:gap-2"
+                  className="grid gap-1 sm:gap-1.5"
                   style={{
-                    gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
+                    gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(58px, 72px))`,
                   }}
                 >
                   {Array.from({ length: currentLayout.cols }).map((_, c) => (
                     <div
                       key={`col-head-${c}`}
-                      className="text-center font-black text-xs text-indigo-800 bg-indigo-100/70 border border-indigo-200/80 rounded-md py-0.5"
+                      className="text-center font-black text-[10px] text-indigo-800 bg-indigo-100/70 border border-indigo-200/80 rounded py-0.2"
                     >
-                      Coluna {getColLetter(c)}
+                      Col. {getColLetter(c)}
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* LINHAS: 1, 2, 3... + CARTEIRAS */}
-              <div className="flex flex-col gap-1.5 sm:gap-2">
+              <div className="flex flex-col gap-1 sm:gap-1.5">
                 {Array.from({ length: currentLayout.rows }).map((_, r) => (
-                  <div key={`row-container-${r}`} className="flex items-center gap-1.5 sm:gap-2">
+                  <div key={`row-container-${r}`} className="flex items-center gap-1 sm:gap-1.5">
                     {/* Indicador lateral da Linha (1, 2, 3...) */}
-                    <div className="w-5 sm:w-6 h-15 sm:h-16 flex flex-col items-center justify-center font-black text-xs text-slate-700 bg-slate-200/80 border border-slate-300 rounded-lg shrink-0">
-                      <span className="text-[9px] uppercase text-slate-400 leading-none">L</span>
+                    <div className="w-4 sm:w-5 h-12 sm:h-13 flex flex-col items-center justify-center font-black text-[11px] text-slate-700 bg-slate-200/80 border border-slate-300 rounded-md shrink-0">
+                      <span className="text-[8px] uppercase text-slate-400 leading-none">L</span>
                       <span className="leading-tight">{r + 1}</span>
                     </div>
 
                     {/* Carteiras da Linha r */}
                     <div
-                      className="grid gap-1.5 sm:gap-2"
+                      className="grid gap-1 sm:gap-1.5"
                       style={{
-                        gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(68px, 88px))`,
+                        gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(58px, 72px))`,
                       }}
                     >
                       {Array.from({ length: currentLayout.cols }).map((_, c) => {
@@ -1147,7 +1147,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                             }}
                             onClick={() => handleSeatClick(r, c)}
                             onDoubleClick={() => handleSeatDoubleClick(r, c)}
-                            className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
+                            className={`h-12 sm:h-13 p-1 rounded-lg border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
                               isBeingDragged
                                 ? 'opacity-40 border-dashed border-indigo-400 scale-95'
                                 : isDropTarget
@@ -1246,7 +1246,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
         {/* MODAL / PAINEL COMPLETO DO ALUNO: OBSERVAÇÕES & OCORRÊNCIAS */}
         {activeStudentModal && (
-          <div className="p-4 bg-white border-t border-slate-200 shadow-2xl flex flex-col gap-3 shrink-0 animate-fadeIn max-h-[46vh] overflow-y-auto">
+          <div className="p-3 bg-white border-t border-slate-200 shadow-2xl flex flex-col gap-2 shrink-0 animate-fadeIn max-h-[38vh] overflow-y-auto">
             
             {/* TOPO DO PAINEL DO ALUNO */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
