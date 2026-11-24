@@ -134,6 +134,10 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const roomAreaRef = useRef<HTMLDivElement>(null);
   const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
 
+  // Drag and Drop de Alunos entre Carteiras
+  const [draggedSeat, setDraggedSeat] = useState<{ r: number; c: number; studentName: string } | null>(null);
+  const [dropTargetSeat, setDropTargetSeat] = useState<{ r: number; c: number } | null>(null);
+
   // Posições dos elementos arrastáveis (drag & drop)
   const [positions, setPositions] = useState<{
     board: CoordPos;
@@ -221,8 +225,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       currentUser.email?.toLowerCase().includes('walter'))
   );
 
-  // Permissão de alteração do mapa
-  const canEditLayout = isUserRegent || isPedagoga;
+  // Permissão de alteração do mapa: APENAS o professor regente pode alterar (nem mesmo outros professores)
+  const canEditLayout = Boolean(isUserRegent);
 
   const currentLayout: ClassroomLayout = config.layouts[selectedClass] || {
     rows: 5,
@@ -325,11 +329,34 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     showToast('Carteira atualizada com sucesso!');
   };
 
-  const handleClearSeat = async () => {
-    if (!selectedSeat || !canEditLayout) return;
-    const seatKey = `${selectedSeat.r}-${selectedSeat.c}`;
+  // Trocar alunos de lugar (Drag and Drop de Aluno entre Carteiras)
+  const handleSwapSeats = async (
+    source: { r: number; c: number; studentName: string },
+    target: { r: number; c: number }
+  ) => {
+    if (!canEditLayout) {
+      alert('Apenas o professor regente desta turma pode alterar ou trocar alunos de carteira.');
+      return;
+    }
+    const sourceKey = `${source.r}-${source.c}`;
+    const targetKey = `${target.r}-${target.c}`;
+
+    if (sourceKey === targetKey) return;
+
     const newSeats = { ...currentLayout.seats };
-    delete newSeats[seatKey];
+    const targetStudent = newSeats[targetKey] || '';
+
+    // Coloca o aluno arrastado no destino
+    newSeats[targetKey] = source.studentName;
+
+    // Se o destino tinha outro aluno, troca de lugar (move para a origem); se estava vazio, limpa a origem
+    if (targetStudent) {
+      newSeats[sourceKey] = targetStudent;
+      showToast(`Alunos trocados de lugar: ${source.studentName} ⇄ ${targetStudent}`);
+    } else {
+      delete newSeats[sourceKey];
+      showToast(`${source.studentName} movido para a Carteira ${getColLetter(target.c)}${target.r + 1}`);
+    }
 
     setIsSaving(true);
     const updated = await classroomService.updateClassLayout(
@@ -339,10 +366,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     );
     setConfig(updated);
     setIsSaving(false);
-    setSelectedSeat(null);
-    setStudentInput('');
-    setActiveStudentModal(null);
-    showToast('Carteira liberada.');
+    setDraggedSeat(null);
+    setDropTargetSeat(null);
   };
 
   const handleAddObservation = async (e: React.FormEvent) => {
@@ -1083,13 +1108,51 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                         const studentOccCount = studentName ? getStudentOccurrences(studentName).length : 0;
                         const studentObsCount = studentName ? getStudentObservations(studentName).length : 0;
 
+                        const isBeingDragged =
+                          draggedSeat?.r === r && draggedSeat?.c === c;
+                        const isDropTarget =
+                          dropTargetSeat?.r === r && dropTargetSeat?.c === c;
+
                         return (
                           <div
                             key={seatKey}
+                            draggable={Boolean(canEditLayout && studentName)}
+                            onDragStart={(e) => {
+                              if (!canEditLayout || !studentName) return;
+                              setDraggedSeat({ r, c, studentName });
+                              e.dataTransfer.setData('text/plain', JSON.stringify({ r, c, studentName }));
+                              e.dataTransfer.effectAllowed = 'move';
+                            }}
+                            onDragOver={(e) => {
+                              if (!canEditLayout || !draggedSeat) return;
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                              if (dropTargetSeat?.r !== r || dropTargetSeat?.c !== c) {
+                                setDropTargetSeat({ r, c });
+                              }
+                            }}
+                            onDragLeave={() => {
+                              if (dropTargetSeat?.r === r && dropTargetSeat?.c === c) {
+                                setDropTargetSeat(null);
+                              }
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              if (!canEditLayout || !draggedSeat) return;
+                              handleSwapSeats(draggedSeat, { r, c });
+                            }}
+                            onDragEnd={() => {
+                              setDraggedSeat(null);
+                              setDropTargetSeat(null);
+                            }}
                             onClick={() => handleSeatClick(r, c)}
                             onDoubleClick={() => handleSeatDoubleClick(r, c)}
                             className={`h-15 sm:h-16 p-1 sm:p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
-                              isSelected
+                              isBeingDragged
+                                ? 'opacity-40 border-dashed border-indigo-400 scale-95'
+                                : isDropTarget
+                                ? 'border-indigo-600 bg-indigo-100/90 ring-4 ring-indigo-400 scale-105 z-20'
+                                : isSelected
                                 ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
                                 : studentName
                                 ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
@@ -1097,8 +1160,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                             }`}
                             title={
                               studentName
-                                ? `Carteira ${seatCoordLabel}: ${studentName} (${studentOccCount} ocorrências, ${studentObsCount} observações)`
-                                : `Carteira livre (${seatCoordLabel})`
+                                ? `${studentName} • Carteira ${seatCoordLabel} (${studentOccCount} ocorrências, ${studentObsCount} observações) ${canEditLayout ? '• Arraste para trocar de lugar' : ''}`
+                                : `Carteira livre (${seatCoordLabel}) ${canEditLayout && draggedSeat ? '• Solte aqui para mover' : ''}`
                             }
                           >
                             {/* Indicador superior com Coordenada e Badges de Alerta */}
@@ -1220,19 +1283,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <AlertTriangle className="w-3.5 h-3.5" />
                   <span>Registrar Ocorrência</span>
                 </button>
-
-                {/* Se regente, opção de trocar nome ou liberar carteira */}
-                {canEditLayout && (
-                  <button
-                    type="button"
-                    onClick={handleClearSeat}
-                    className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 border border-rose-200 rounded-xl transition"
-                    title="Remover estudante desta carteira"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Liberar Carteira</span>
-                  </button>
-                )}
 
                 <button
                   type="button"
