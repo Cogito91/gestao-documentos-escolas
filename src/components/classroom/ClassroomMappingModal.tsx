@@ -667,29 +667,29 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         )}
 
         {/* CABEÇALHO COMPACTO COM BOTÃO DE COLAPSAR MENU */}
-        <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-800 via-blue-800 to-sky-800 text-white flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 bg-white/15 rounded-xl border border-white/20">
+        <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-800 via-blue-800 to-sky-800 text-white flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-1.5 bg-white/15 rounded-xl border border-white/20 shrink-0">
               <Grid className="w-4 h-4 text-white" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-extrabold text-sm sm:text-base leading-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-nowrap">
+                <h3 className="font-extrabold text-sm sm:text-base leading-tight truncate">
                   Mapeamento de Sala • Ocorrências & Observações
                 </h3>
-                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
                   {selectedClass}
                 </span>
                 {assignedRegent && (
-                  <span className="hidden sm:inline-block text-[10px] text-sky-200 font-medium">
-                    (Regente: {assignedRegent.teacherName.split(' ')[1] || assignedRegent.teacherName})
+                  <span className="hidden lg:inline-block text-[10px] text-sky-200 font-medium truncate">
+                    (Regente: {assignedRegent.teacherName})
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Botão de Colapsar / Expandir Menu Superior */}
             <button
               type="button"
@@ -737,10 +737,10 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         {!isMenuCollapsed && (
           <div className="bg-slate-50 border-b border-slate-200 transition-all shrink-0">
             {/* LINHA DE TURMA, REGENTE, REDIMENSIONAMENTO E DROPDOWN DE DIREÇÃO */}
-            <div className="p-2 sm:px-4 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="p-2 sm:px-4 flex flex-wrap items-center justify-between gap-2.5 text-xs">
               
               {/* Seletor de Turma */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span className="font-bold text-slate-700 text-xs">Turma:</span>
                 <select
                   value={selectedClass}
@@ -759,23 +759,23 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 </select>
               </div>
 
-              {/* Status do Regente */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white border border-slate-200">
+              {/* Status do Regente e Permissão */}
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 shadow-2xs">
                   <UserCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                   <span className="text-[11px] text-slate-500">Regente:</span>
-                  <span className="font-extrabold text-slate-800 text-xs truncate max-w-[130px] sm:max-w-none">
+                  <span className="font-extrabold text-slate-800 text-xs whitespace-normal">
                     {assignedRegent ? assignedRegent.teacherName : 'Não atribuído'}
                   </span>
                 </div>
 
                 {canEditLayout ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1 whitespace-nowrap">
                     <Edit3 className="w-2.5 h-2.5 text-emerald-600" />
                     <span>Edição Liberada</span>
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 whitespace-nowrap">
                     <Lock className="w-2.5 h-2.5 text-amber-600" />
                     <span>Apenas Leitura</span>
                   </span>
@@ -784,7 +784,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
               {/* Matriz (Fileiras x Colunas) */}
               {canEditLayout && (
-                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200">
+                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
                   <span className="text-slate-600 text-[11px] font-bold">Matriz:</span>
                   <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
                     {currentLayout.rows}L × {currentLayout.cols}C ({getColLetter(0)} a {getColLetter(currentLayout.cols - 1)})
@@ -927,17 +927,17 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
             {/* SEÇÃO DA PEDAGOGA: ATRIBUIR OU TROCAR REGENTE */}
             {isPedagoga && (
-              <div className="px-4 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 border-t border-purple-100 flex flex-wrap items-center justify-between gap-2">
+              <div className="px-4 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 border-t border-purple-100 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-purple-950">
-                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                   <span>Coordenação Pedagógica: Indicar Professor Regente ({selectedClass})</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
                   <select
                     value={regentTeacherId}
                     onChange={(e) => setRegentTeacherId(e.target.value)}
-                    className="px-2 py-1 text-xs font-medium border border-purple-300 rounded-lg bg-white text-purple-900 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    className="min-h-[42px] sm:min-h-0 px-3 py-1.5 text-xs font-medium border border-purple-300 rounded-lg bg-white text-purple-900 focus:outline-none focus:ring-1 focus:ring-purple-500 w-full sm:w-auto"
                   >
                     <option value="">Selecione o professor regente...</option>
                     {teachers.map((t) => (
@@ -951,7 +951,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                     type="button"
                     onClick={handleAssignRegent}
                     disabled={!regentTeacherId || isSaving}
-                    className="px-2.5 py-1 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer"
+                    className="min-h-[42px] sm:min-h-0 px-4 py-1.5 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg transition shadow-xs cursor-pointer w-full sm:w-auto text-center"
                   >
                     Atribuir Regente
                   </button>
@@ -960,7 +960,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                     <button
                       type="button"
                       onClick={handleRemoveRegent}
-                      className="px-2 py-0.5 text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                      className="px-2 py-1 text-xs text-rose-600 hover:text-rose-800 font-semibold text-center"
                       title="Desvincular regente"
                     >
                       Desvincular
@@ -973,268 +973,238 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS ARRASTÁVEIS */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-3 bg-slate-100/70 flex flex-col items-center justify-center">
+        {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS DA SALA */}
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-4 bg-slate-100/70 flex flex-col items-center justify-center">
           
           {/* PAREDES DA SALA DE AULA */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-3xl p-3 sm:p-4 flex flex-col items-center justify-center select-none"
-            style={{ touchAction: 'none' }}
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-3 sm:p-5 flex flex-col items-center select-none"
           >
-            {/* ELEMENTO 1: QUADRO / LOUSA */}
-            <div
-              onMouseDown={(e) => startDrag('board', e)}
-              onTouchStart={(e) => startDrag('board', e)}
-              style={{
-                position: 'absolute',
-                left: `${positions.board.x}%`,
-                top: `${positions.board.y}%`,
-                width: `${sizes.boardWidth}%`,
-                transform: 'translate(-50%, -50%)',
-                cursor: canEditLayout ? 'grab' : 'default',
-              }}
-              className={`z-20 px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg border-2 border-slate-600 transition-shadow ${
-                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-indigo-400' : ''
-              }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar o Quadro.' : 'Quadro da sala'}
-            >
-              {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 text-slate-400 shrink-0" />}
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
-              <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span className="truncate">QUADRO / LOUSA</span>
+            {/* TAG EXTERNA DA PORTA (Fixada na borda externa esquerda sem sobrepor a Coluna A ou L1) */}
+            <div className="absolute -left-3.5 top-8 z-30 flex items-center justify-center">
+              <div
+                className="w-7 py-3 px-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md flex flex-col items-center gap-1 text-[9px] font-black tracking-tighter [writing-mode:vertical-lr]"
+                title="Porta de entrada da sala"
+              >
+                <DoorOpen className="w-3.5 h-3.5 text-emerald-200 rotate-90" />
+                <span>PORTA</span>
+              </div>
             </div>
 
-            {/* ELEMENTO 2: MESA DO PROFESSOR */}
-            <div
-              onMouseDown={(e) => startDrag('teacherDesk', e)}
-              onTouchStart={(e) => startDrag('teacherDesk', e)}
-              style={{
-                position: 'absolute',
-                left: `${positions.teacherDesk.x}%`,
-                top: `${positions.teacherDesk.y}%`,
-                transform: `translate(-50%, -50%) scale(${sizes.teacherDeskScale})`,
-                transformOrigin: 'center center',
-                cursor: canEditLayout ? 'grab' : 'default',
-              }}
-              className={`z-20 px-3 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-lg border-2 border-amber-400 transition-shadow ${
-                canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-amber-300' : ''
-              }`}
-              title={canEditLayout ? 'Clique e arraste para posicionar a Mesa do Professor.' : 'Mesa do Professor'}
-            >
-              {canEditLayout && <GripHorizontal className="w-3 h-3 text-amber-200" />}
-              <Briefcase className="w-3.5 h-3.5 text-white" />
-              <span>MESA PROFESSOR</span>
+            {/* LINHA SUPERIOR DEDICADA: QUADRO / LOUSA & MESA DO PROFESSOR (Flexbox sem sobreposição) */}
+            <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 pb-2 border-b border-slate-200">
+              {/* Espaço ou marcador da porta */}
+              <div className="hidden sm:flex items-center gap-1.5 text-emerald-800 text-[11px] font-extrabold pl-4">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>[ Entrada / Porta ]</span>
+              </div>
+
+              {/* Centro: QUADRO / LOUSA */}
+              <div
+                style={{ width: `${sizes.boardWidth}%`, minWidth: '220px' }}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border-2 border-slate-600 transition-all"
+                title="Quadro / Lousa da sala"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span className="truncate">QUADRO / LOUSA</span>
+              </div>
+
+              {/* Lado Direito: MESA DO PROFESSOR */}
+              <div
+                style={{
+                  transform: `scale(${sizes.teacherDeskScale})`,
+                  transformOrigin: 'right center',
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm border-2 border-amber-400 shrink-0 transition-transform"
+                title="Mesa do Professor"
+              >
+                <Briefcase className="w-3.5 h-3.5 text-white" />
+                <span>MESA PROFESSOR</span>
+              </div>
             </div>
 
-            {/* ELEMENTO 3: PORTA DA SALA */}
-            <div
-              onMouseDown={(e) => startDrag('door', e)}
-              onTouchStart={(e) => startDrag('door', e)}
-              style={{
-                position: 'absolute',
-                left: `${positions.door.x}%`,
-                top: `${positions.door.y}%`,
-                transform: `translate(-50%, -50%) scale(${sizes.doorScale})`,
-                cursor: canEditLayout ? 'grab' : 'default',
-              }}
-              className={`z-30 flex items-center justify-center transition-all ${
-                isVerticalDoor
-                  ? 'w-7 py-3 px-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md'
-                  : 'px-3 py-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md'
-              } ${canEditLayout ? 'active:cursor-grabbing hover:ring-2 hover:ring-emerald-400' : ''}`}
-              title={canEditLayout ? 'Arraste a porta pela parede da sala' : 'Porta de entrada'}
-            >
-              {isVerticalDoor ? (
-                <div className="flex flex-col items-center gap-1 text-[9px] font-black tracking-tighter [writing-mode:vertical-lr]">
-                  <DoorOpen className="w-3.5 h-3.5 text-emerald-200 rotate-90" />
-                  <span>PORTA</span>
+            {/* CONTAINER COM SCROLL HORIZONTAL SUAVE PARA O GRID DE CARTEIRAS */}
+            <div className="w-full overflow-x-auto pb-2 flex justify-center">
+              {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
+              <div className="z-10 py-2 px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs inline-flex flex-col items-center min-w-max">
+                
+                {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <div className="w-6 shrink-0" />
+                  <div
+                    className="grid gap-1.5"
+                    style={{
+                      gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(72px, 88px))`,
+                    }}
+                  >
+                    {Array.from({ length: currentLayout.cols }).map((_, c) => (
+                      <div
+                        key={`col-head-${c}`}
+                        className="text-center font-black text-[11px] text-indigo-900 bg-indigo-100/80 border border-indigo-200 rounded-md py-0.5"
+                      >
+                        Col. {getColLetter(c)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <div className="flex items-center gap-1 text-[10px] font-black tracking-wider">
-                  <DoorOpen className="w-3.5 h-3.5 text-emerald-200" />
-                  <span>PORTA</span>
-                </div>
-              )}
-            </div>
 
-            {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
-            <div className="z-10 my-4 py-2 px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs flex flex-col items-center">
-              
-              {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
-              <div className="flex items-center gap-1 sm:gap-1.5 mb-1">
-                <div className="w-4 sm:w-5" />
-                <div
-                  className="grid gap-1 sm:gap-1.5"
-                  style={{
-                    gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(58px, 72px))`,
-                  }}
-                >
-                  {Array.from({ length: currentLayout.cols }).map((_, c) => (
-                    <div
-                      key={`col-head-${c}`}
-                      className="text-center font-black text-[10px] text-indigo-800 bg-indigo-100/70 border border-indigo-200/80 rounded py-0.2"
-                    >
-                      Col. {getColLetter(c)}
+                {/* LINHAS: 1, 2, 3... + CARTEIRAS */}
+                <div className="flex flex-col gap-1.5">
+                  {Array.from({ length: currentLayout.rows }).map((_, r) => (
+                    <div key={`row-container-${r}`} className="flex items-center gap-1.5">
+                      {/* Indicador lateral da Linha (1, 2, 3...) */}
+                      <div className="w-6 h-14 flex flex-col items-center justify-center font-black text-xs text-slate-700 bg-slate-200 border border-slate-300 rounded-lg shrink-0">
+                        <span className="text-[8px] uppercase text-slate-400 leading-none">L</span>
+                        <span className="leading-tight">{r + 1}</span>
+                      </div>
+
+                      {/* Carteiras da Linha r */}
+                      <div
+                        className="grid gap-1.5"
+                        style={{
+                          gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(72px, 88px))`,
+                        }}
+                      >
+                        {Array.from({ length: currentLayout.cols }).map((_, c) => {
+                          const seatKey = `${r}-${c}`;
+                          const studentName = currentLayout.seats[seatKey];
+                          const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
+                          const seatCoordLabel = `${getColLetter(c)}${r + 1}`;
+                          
+                          // Busca se esse aluno possui ocorrências ou observações
+                          const studentOccCount = studentName ? getStudentOccurrences(studentName).length : 0;
+                          const studentObsCount = studentName ? getStudentObservations(studentName).length : 0;
+
+                          const isBeingDragged =
+                            draggedSeat?.r === r && draggedSeat?.c === c;
+                          const isDropTarget =
+                            dropTargetSeat?.r === r && dropTargetSeat?.c === c;
+
+                          return (
+                            <div
+                              key={seatKey}
+                              draggable={Boolean(canEditLayout && studentName)}
+                              onDragStart={(e) => {
+                                if (!canEditLayout || !studentName) return;
+                                setDraggedSeat({ r, c, studentName });
+                                e.dataTransfer.setData('text/plain', JSON.stringify({ r, c, studentName }));
+                                e.dataTransfer.effectAllowed = 'move';
+                              }}
+                              onDragOver={(e) => {
+                                if (!canEditLayout || !draggedSeat) return;
+                                e.preventDefault();
+                                e.dataTransfer.dropEffect = 'move';
+                                if (dropTargetSeat?.r !== r || dropTargetSeat?.c !== c) {
+                                  setDropTargetSeat({ r, c });
+                                }
+                              }}
+                              onDragLeave={() => {
+                                if (dropTargetSeat?.r === r && dropTargetSeat?.c === c) {
+                                  setDropTargetSeat(null);
+                                }
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                if (!canEditLayout || !draggedSeat) return;
+                                handleSwapSeats(draggedSeat, { r, c });
+                              }}
+                              onDragEnd={() => {
+                                setDraggedSeat(null);
+                                setDropTargetSeat(null);
+                              }}
+                              onClick={() => handleSeatClick(r, c)}
+                              onDoubleClick={() => handleSeatDoubleClick(r, c)}
+                              className={`h-14 p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative min-w-[72px] ${
+                                isBeingDragged
+                                  ? 'opacity-40 border-dashed border-indigo-400 scale-95'
+                                  : isDropTarget
+                                  ? 'border-indigo-600 bg-indigo-100/90 ring-4 ring-indigo-400 scale-105 z-20'
+                                  : isSelected
+                                  ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
+                                  : studentName
+                                  ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
+                                  : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
+                              }`}
+                              title={
+                                studentName
+                                  ? `${studentName} • Carteira ${seatCoordLabel} (${studentOccCount} ocorrências, ${studentObsCount} observações) ${canEditLayout ? '• Arraste para trocar de lugar' : ''}`
+                                  : `Carteira livre (${seatCoordLabel}) ${canEditLayout && draggedSeat ? '• Solte aqui para mover' : ''}`
+                              }
+                            >
+                              {/* Indicador superior com Coordenada e Badges de Alerta */}
+                              <div className="flex items-center justify-between text-[9px] font-black leading-none">
+                                <span className="px-1 py-0.2 bg-slate-100 rounded text-slate-700 font-extrabold text-[8px] sm:text-[9px]">
+                                  {seatCoordLabel}
+                                </span>
+
+                                <div className="flex items-center gap-1">
+                                  {/* Badge de Ocorrência se houver */}
+                                  {studentOccCount > 0 && (
+                                    <span
+                                      className="px-1 py-0.2 rounded-full bg-rose-600 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs animate-pulse"
+                                      title={`${studentOccCount} ocorrência(s) registrada(s)`}
+                                    >
+                                      <AlertTriangle className="w-2 h-2" />
+                                      <span>{studentOccCount}</span>
+                                    </span>
+                                  )}
+
+                                  {/* Badge de Observação se houver */}
+                                  {studentObsCount > 0 && (
+                                    <span
+                                      className="px-1 py-0.2 rounded-full bg-amber-500 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs"
+                                      title={`${studentObsCount} observação(ões) pedagógica(s)`}
+                                    >
+                                      <MessageSquare className="w-2 h-2" />
+                                      <span>{studentObsCount}</span>
+                                    </span>
+                                  )}
+
+                                  <span title={`Carteiras viradas para: ${deskFacing}`}>
+                                    {renderFacingIcon()}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Nome do Estudante / Carteira Vazia */}
+                              <div className="flex-1 flex items-center justify-center text-center px-0.5 overflow-hidden">
+                                {studentName ? (
+                                  <p className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight line-clamp-2">
+                                    {studentName}
+                                  </p>
+                                ) : (
+                                  <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-slate-600">
+                                    {canEditLayout ? '+ Aluno' : 'Livre'}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Marcador decorativo de carteira com status */}
+                              <div className="w-full flex items-center justify-center">
+                                <div
+                                  className={`w-full h-1 rounded-full ${
+                                    studentOccCount > 0
+                                      ? 'bg-rose-500'
+                                      : studentName
+                                      ? 'bg-indigo-500'
+                                      : 'bg-slate-200'
+                                  }`}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* LINHAS: 1, 2, 3... + CARTEIRAS */}
-              <div className="flex flex-col gap-1 sm:gap-1.5">
-                {Array.from({ length: currentLayout.rows }).map((_, r) => (
-                  <div key={`row-container-${r}`} className="flex items-center gap-1 sm:gap-1.5">
-                    {/* Indicador lateral da Linha (1, 2, 3...) */}
-                    <div className="w-4 sm:w-5 h-12 sm:h-13 flex flex-col items-center justify-center font-black text-[11px] text-slate-700 bg-slate-200/80 border border-slate-300 rounded-md shrink-0">
-                      <span className="text-[8px] uppercase text-slate-400 leading-none">L</span>
-                      <span className="leading-tight">{r + 1}</span>
-                    </div>
-
-                    {/* Carteiras da Linha r */}
-                    <div
-                      className="grid gap-1 sm:gap-1.5"
-                      style={{
-                        gridTemplateColumns: `repeat(${currentLayout.cols}, minmax(58px, 72px))`,
-                      }}
-                    >
-                      {Array.from({ length: currentLayout.cols }).map((_, c) => {
-                        const seatKey = `${r}-${c}`;
-                        const studentName = currentLayout.seats[seatKey];
-                        const isSelected = selectedSeat?.r === r && selectedSeat?.c === c;
-                        const seatCoordLabel = `${getColLetter(c)}${r + 1}`;
-                        
-                        // Busca se esse aluno possui ocorrências ou observações
-                        const studentOccCount = studentName ? getStudentOccurrences(studentName).length : 0;
-                        const studentObsCount = studentName ? getStudentObservations(studentName).length : 0;
-
-                        const isBeingDragged =
-                          draggedSeat?.r === r && draggedSeat?.c === c;
-                        const isDropTarget =
-                          dropTargetSeat?.r === r && dropTargetSeat?.c === c;
-
-                        return (
-                          <div
-                            key={seatKey}
-                            draggable={Boolean(canEditLayout && studentName)}
-                            onDragStart={(e) => {
-                              if (!canEditLayout || !studentName) return;
-                              setDraggedSeat({ r, c, studentName });
-                              e.dataTransfer.setData('text/plain', JSON.stringify({ r, c, studentName }));
-                              e.dataTransfer.effectAllowed = 'move';
-                            }}
-                            onDragOver={(e) => {
-                              if (!canEditLayout || !draggedSeat) return;
-                              e.preventDefault();
-                              e.dataTransfer.dropEffect = 'move';
-                              if (dropTargetSeat?.r !== r || dropTargetSeat?.c !== c) {
-                                setDropTargetSeat({ r, c });
-                              }
-                            }}
-                            onDragLeave={() => {
-                              if (dropTargetSeat?.r === r && dropTargetSeat?.c === c) {
-                                setDropTargetSeat(null);
-                              }
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              if (!canEditLayout || !draggedSeat) return;
-                              handleSwapSeats(draggedSeat, { r, c });
-                            }}
-                            onDragEnd={() => {
-                              setDraggedSeat(null);
-                              setDropTargetSeat(null);
-                            }}
-                            onClick={() => handleSeatClick(r, c)}
-                            onDoubleClick={() => handleSeatDoubleClick(r, c)}
-                            className={`h-12 sm:h-13 p-1 rounded-lg border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative ${
-                              isBeingDragged
-                                ? 'opacity-40 border-dashed border-indigo-400 scale-95'
-                                : isDropTarget
-                                ? 'border-indigo-600 bg-indigo-100/90 ring-4 ring-indigo-400 scale-105 z-20'
-                                : isSelected
-                                ? 'border-indigo-600 bg-indigo-50 shadow-md ring-2 ring-indigo-300 scale-105 z-10'
-                                : studentName
-                                ? 'border-blue-300 bg-gradient-to-b from-blue-50/90 to-indigo-50/80 hover:border-blue-500 shadow-2xs hover:scale-[1.02]'
-                                : 'border-dashed border-slate-300 bg-white/80 hover:bg-slate-100 hover:border-slate-400 text-slate-400'
-                            }`}
-                            title={
-                              studentName
-                                ? `${studentName} • Carteira ${seatCoordLabel} (${studentOccCount} ocorrências, ${studentObsCount} observações) ${canEditLayout ? '• Arraste para trocar de lugar' : ''}`
-                                : `Carteira livre (${seatCoordLabel}) ${canEditLayout && draggedSeat ? '• Solte aqui para mover' : ''}`
-                            }
-                          >
-                            {/* Indicador superior com Coordenada e Badges de Alerta */}
-                            <div className="flex items-center justify-between text-[9px] font-black leading-none">
-                              <span className="px-1 py-0.2 bg-slate-100 rounded text-slate-700 font-extrabold text-[8px] sm:text-[9px]">
-                                {seatCoordLabel}
-                              </span>
-
-                              <div className="flex items-center gap-1">
-                                {/* Badge de Ocorrência se houver */}
-                                {studentOccCount > 0 && (
-                                  <span
-                                    className="px-1 py-0.2 rounded-full bg-rose-600 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs animate-pulse"
-                                    title={`${studentOccCount} ocorrência(s) registrada(s)`}
-                                  >
-                                    <AlertTriangle className="w-2 h-2" />
-                                    <span>{studentOccCount}</span>
-                                  </span>
-                                )}
-
-                                {/* Badge de Observação se houver */}
-                                {studentObsCount > 0 && (
-                                  <span
-                                    className="px-1 py-0.2 rounded-full bg-amber-500 text-white font-black text-[8px] flex items-center gap-0.5 shadow-2xs"
-                                    title={`${studentObsCount} observação(ões) pedagógica(s)`}
-                                  >
-                                    <MessageSquare className="w-2 h-2" />
-                                    <span>{studentObsCount}</span>
-                                  </span>
-                                )}
-
-                                <span title={`Carteiras viradas para: ${deskFacing}`}>
-                                  {renderFacingIcon()}
-                                </span>
-                              </div>
-                            </div>
-
-                            {/* Nome do Estudante / Carteira Vazia */}
-                            <div className="flex-1 flex items-center justify-center text-center px-0.5 overflow-hidden">
-                              {studentName ? (
-                                <p className="text-[10px] sm:text-[11px] font-black text-slate-900 leading-tight line-clamp-2">
-                                  {studentName}
-                                </p>
-                              ) : (
-                                <span className="text-[8px] sm:text-[9px] font-bold text-slate-400 group-hover:text-slate-600">
-                                  {canEditLayout ? '+ Aluno' : 'Livre'}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Marcador decorativo de carteira com status */}
-                            <div className="w-full flex items-center justify-center">
-                              <div
-                                className={`w-full h-1 rounded-full ${
-                                  studentOccCount > 0
-                                    ? 'bg-rose-500'
-                                    : studentName
-                                    ? 'bg-indigo-500'
-                                    : 'bg-slate-200'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
             </div>
 
             {/* MARCADOR DE FUNDO DA SALA */}
-            <div className="w-full text-center mt-auto pt-2">
+            <div className="w-full text-center mt-3 pt-2 border-t border-slate-200">
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 — PAREDE DE FUNDO DA SALA —
               </span>
@@ -1450,21 +1420,33 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
         {/* POPUP SIMPLES CASO SELECIONE UMA CARTEIRA LIVRE PARA DIGITAR O NOME */}
         {selectedSeat && !activeStudentModal && (
-          <div className="p-3 bg-white border-t border-slate-200 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0 animate-fadeIn">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
-                <Edit3 className="w-3.5 h-3.5" />
+          <div className="p-3 bg-white border-t border-slate-200 shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0 animate-fadeIn">
+            <div className="flex items-center justify-between sm:justify-start gap-2.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg shrink-0">
+                  <Edit3 className="w-3.5 h-3.5" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-800">
+                    Carteira: {getColLetter(selectedSeat.c)}{selectedSeat.r + 1} (Linha {selectedSeat.r + 1}, Coluna {getColLetter(selectedSeat.c)}) • {selectedClass}
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    {canEditLayout
+                      ? 'Digite o nome do estudante para alocar nesta carteira'
+                      : 'Visualização da carteira selecionada'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-xs font-black text-slate-800">
-                  Carteira: {getColLetter(selectedSeat.c)}{selectedSeat.r + 1} (Linha {selectedSeat.r + 1}, Coluna {getColLetter(selectedSeat.c)}) • {selectedClass}
-                </h4>
-                <p className="text-[10px] text-slate-500">
-                  {canEditLayout
-                    ? 'Digite o nome do estudante para alocar nesta carteira'
-                    : 'Visualização da carteira selecionada'}
-                </p>
-              </div>
+
+              {!canEditLayout && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSeat(null)}
+                  className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700 sm:hidden"
+                >
+                  Fechar
+                </button>
+              )}
             </div>
 
             {canEditLayout ? (
@@ -1475,7 +1457,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   placeholder="Nome do Estudante..."
                   value={studentInput}
                   onChange={(e) => setStudentInput(e.target.value)}
-                  className="px-3 py-1.5 text-xs font-bold border-2 border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none w-full sm:w-60 bg-slate-50"
+                  className="px-3 py-1.5 text-xs font-bold border-2 border-indigo-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none flex-1 sm:w-60 bg-slate-50"
                 />
 
                 <button
@@ -1490,7 +1472,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedSeat(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 shrink-0"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1499,7 +1481,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedSeat(null)}
-                className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
+                className="hidden sm:inline-block px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-xs font-bold text-slate-700"
               >
                 Fechar
               </button>
@@ -1507,15 +1489,43 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
         )}
 
-        {/* RODAPÉ RESUMO COMPACTO */}
-        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
-          <div>
-            Total: <strong>{occupiedSeatsCount}</strong> / {totalSeats} ocupadas • <strong>{totalSeats - occupiedSeatsCount}</strong> livres
+        {/* RODAPÉ RESUMO COMPACTO E PADRONIZADO EM PORTUGUÊS */}
+        <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-bold text-slate-800">Ocupação:</span>
+            <span>
+              <strong>{occupiedSeatsCount}</strong> de {totalSeats} carteiras ocupadas (<strong>{totalSeats - occupiedSeatsCount}</strong> livres)
+            </span>
           </div>
-          <div className="text-[10px] text-slate-400 flex items-center gap-2">
-            <span>Orientação: Carteiras viradas para <strong>{deskFacing}</strong></span>
-            <span>•</span>
-            <span>{assignedRegent ? `Regente: ${assignedRegent.teacherName}` : 'Sem regente'}</span>
+
+          <div className="flex flex-wrap items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <Compass className="w-3.5 h-3.5 text-indigo-600" />
+              <span>
+                Orientação: Carteiras viradas para{' '}
+                <strong className="text-indigo-900">
+                  {deskFacing === 'up'
+                    ? 'cima (frente)'
+                    : deskFacing === 'down'
+                    ? 'baixo (fundo)'
+                    : deskFacing === 'left'
+                    ? 'a esquerda'
+                    : 'a direita'}
+                </strong>
+              </span>
+            </div>
+
+            <span className="text-slate-300 hidden sm:inline">•</span>
+
+            <div className="flex items-center gap-1.5 text-slate-600">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>
+                Regente:{' '}
+                <strong className="text-slate-800">
+                  {assignedRegent ? assignedRegent.teacherName : 'Não atribuído'}
+                </strong>
+              </span>
+            </div>
           </div>
         </div>
 
