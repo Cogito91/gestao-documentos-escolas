@@ -248,16 +248,19 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
 
   // Verifica se o usuário atual é o regente da turma selecionada
   const assignedRegent = config.regents[selectedClass];
-  const isUserRegent = Boolean(
+  const isWalter = Boolean(
+    currentUser?.full_name?.toLowerCase().includes('walter') ||
+    currentUser?.email?.toLowerCase().includes('walter') ||
+    currentUser?.role === 'admin'
+  );
+  const isClassRegent = Boolean(
     currentUser &&
     assignedRegent &&
-    (assignedRegent.teacherId === currentUser.id ||
-      currentUser.full_name?.toLowerCase().includes('walter') ||
-      currentUser.email?.toLowerCase().includes('walter'))
+    assignedRegent.teacherId === currentUser.id
   );
 
-  // Permissão de alteração do mapa: APENAS o professor regente pode alterar (nem mesmo outros professores)
-  const canEditLayout = Boolean(isUserRegent);
+  // Permissão de alteração do mapa: Professor regente da turma, Pedagoga ou Walter/Administrador
+  const canEditLayout = Boolean(isClassRegent || isPedagoga || isWalter);
 
   const currentLayout: ClassroomLayout = config.layouts[selectedClass] || {
     rows: 5,
@@ -923,48 +926,60 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 )}
               </div>
 
-              {/* Matriz (Fileiras x Colunas) */}
-              {canEditLayout && (
-                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
-                  <span className="text-slate-600 text-[11px] font-bold">Matriz:</span>
-                  <span className="px-1.5 py-0.2 rounded bg-indigo-50 font-black text-indigo-700 text-xs">
-                    {currentLayout.rows}L × {currentLayout.cols}C ({getColLetter(0)} a {getColLetter(currentLayout.cols - 1)})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleResizeGrid(-1, 0)}
-                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Diminuir linhas"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleResizeGrid(1, 0)}
-                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Aumentar linhas"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                  <span className="text-slate-300">|</span>
-                  <button
-                    type="button"
-                    onClick={() => handleResizeGrid(0, -1)}
-                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Diminuir colunas"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleResizeGrid(0, 1)}
-                    className="p-0.5 rounded hover:bg-slate-100 text-slate-600"
-                    title="Aumentar colunas"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
+              {/* CONTROLE 1: AJUSTAR QUANTIDADE DE LINHAS */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                <span className="text-slate-600 text-[11px] font-bold">Linhas:</span>
+                <button
+                  type="button"
+                  onClick={() => handleResizeGrid(-1, 0)}
+                  disabled={!canEditLayout || currentLayout.rows <= 2}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition border border-slate-200"
+                  title="Diminuir quantidade de linhas da sala"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="min-w-6 text-center font-black text-indigo-700 text-xs px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-100">
+                  {currentLayout.rows}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleResizeGrid(1, 0)}
+                  disabled={!canEditLayout || currentLayout.rows >= 10}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-indigo-50 hover:bg-indigo-100 active:scale-95 text-indigo-700 font-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition border border-indigo-200"
+                  title="Aumentar quantidade de linhas da sala"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
+
+              {/* CONTROLE 2: AJUSTAR QUANTIDADE DE COLUNAS */}
+              <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                <span className="text-slate-600 text-[11px] font-bold">Colunas:</span>
+                <button
+                  type="button"
+                  onClick={() => handleResizeGrid(0, -1)}
+                  disabled={!canEditLayout || currentLayout.cols <= 2}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition border border-slate-200"
+                  title="Diminuir quantidade de colunas da sala"
+                >
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span
+                  className="min-w-8 text-center font-black text-indigo-700 text-xs px-1.5 py-0.5 bg-indigo-50 rounded border border-indigo-100"
+                  title={`Colunas de A até ${getColLetter(currentLayout.cols - 1)}`}
+                >
+                  {currentLayout.cols} ({getColLetter(currentLayout.cols - 1)})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleResizeGrid(0, 1)}
+                  disabled={!canEditLayout || currentLayout.cols >= 10}
+                  className="w-6 h-6 flex items-center justify-center rounded bg-indigo-50 hover:bg-indigo-100 active:scale-95 text-indigo-700 font-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition border border-indigo-200"
+                  title="Aumentar quantidade de colunas da sala"
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+              </div>
 
               {/* DROPDOWN DE DIREÇÃO DAS CARTEIRAS */}
               {canEditLayout && (
