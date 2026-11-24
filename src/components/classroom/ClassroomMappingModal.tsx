@@ -34,6 +34,7 @@ import {
   Eye,
   AlertCircle,
   PlusCircle,
+  ArrowLeftRight,
 } from 'lucide-react';
 import {
   classroomService,
@@ -137,6 +138,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   // Drag and Drop de Alunos entre Carteiras
   const [draggedSeat, setDraggedSeat] = useState<{ r: number; c: number; studentName: string } | null>(null);
   const [dropTargetSeat, setDropTargetSeat] = useState<{ r: number; c: number } | null>(null);
+
+  // Modo móvel: Seleção de aluno para trocar de lugar com 1 toque
+  const [selectedSeatToMove, setSelectedSeatToMove] = useState<{ r: number; c: number; studentName: string } | null>(null);
 
   // Posições dos elementos arrastáveis (drag & drop)
   const [positions, setPositions] = useState<{
@@ -261,6 +265,20 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     const seatKey = `${r}-${c}`;
     const studentName = currentLayout.seats[seatKey] || '';
     const seatCoord = `${getColLetter(c)}${r + 1}`;
+
+    // Se estiver no modo "Trocar de Lugar" (especialmente prático no celular/toque)
+    if (selectedSeatToMove) {
+      if (selectedSeatToMove.r === r && selectedSeatToMove.c === c) {
+        // Clicou no mesmo aluno: cancela a troca
+        setSelectedSeatToMove(null);
+        showToast('Troca cancelada.');
+        return;
+      }
+      // Troca com a carteira clicada
+      handleSwapSeats(selectedSeatToMove, { r, c });
+      setSelectedSeatToMove(null);
+      return;
+    }
 
     setSelectedSeat({ r, c });
     setStudentInput(studentName);
@@ -974,36 +992,41 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
         )}
 
         {/* ÁREA PRINCIPAL DA SALA: PLANTA COM AS PAREDES E OS ELEMENTOS DA SALA */}
-        <div className="flex-1 overflow-y-auto overflow-x-auto p-3 sm:p-4 bg-slate-100/70 flex flex-col items-center justify-center">
+        <div className="flex-1 overflow-y-auto overflow-x-auto p-2 sm:p-4 bg-slate-100/70 flex flex-col items-center">
           
+          {/* BANNER INFORMATIVO SE ESTIVER TROCANDO ALUNO DE CARTEIRA (ÚTIL EM DISPOSITIVOS TOUCH) */}
+          {selectedSeatToMove && (
+            <div className="mb-2 bg-indigo-600 text-white px-3 py-1.5 rounded-xl shadow-md text-xs font-bold flex items-center gap-2 animate-fadeIn">
+              <ArrowLeftRight className="w-4 h-4 text-amber-300 animate-pulse" />
+              <span>
+                Toque na carteira de destino para trocar <strong>{selectedSeatToMove.studentName}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedSeatToMove(null)}
+                className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[10px] font-extrabold"
+              >
+                Cancelar
+              </button>
+            </div>
+          )}
+
           {/* PAREDES DA SALA DE AULA */}
           <div
             ref={roomAreaRef}
-            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-3 sm:p-5 flex flex-col items-center select-none"
+            className="relative bg-white/95 rounded-2xl shadow-md border-4 border-slate-400 w-full max-w-4xl p-2 sm:p-5 flex flex-col items-center select-none"
           >
-            {/* TAG EXTERNA DA PORTA (Fixada na borda externa esquerda sem sobrepor a Coluna A ou L1) */}
-            <div className="absolute -left-3.5 top-8 z-30 flex items-center justify-center">
-              <div
-                className="w-7 py-3 px-1 rounded-md bg-emerald-700 text-white border-2 border-emerald-300 shadow-md flex flex-col items-center gap-1 text-[9px] font-black tracking-tighter [writing-mode:vertical-lr]"
-                title="Porta de entrada da sala"
-              >
-                <DoorOpen className="w-3.5 h-3.5 text-emerald-200 rotate-90" />
-                <span>PORTA</span>
-              </div>
-            </div>
-
-            {/* LINHA SUPERIOR DEDICADA: QUADRO / LOUSA & MESA DO PROFESSOR (Flexbox sem sobreposição) */}
-            <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 pb-2 border-b border-slate-200">
-              {/* Espaço ou marcador da porta */}
-              <div className="hidden sm:flex items-center gap-1.5 text-emerald-800 text-[11px] font-extrabold pl-4">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                <span>[ Entrada / Porta ]</span>
+            {/* TAG DA PORTA (Integrada com margem limpa para a Coluna A e L1 nunca ficarem cobertas) */}
+            <div className="w-full flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[11px] font-black uppercase tracking-wider shadow-xs">
+                <DoorOpen className="w-4 h-4 text-emerald-200" />
+                <span>PORTA DE ENTRADA</span>
               </div>
 
               {/* Centro: QUADRO / LOUSA */}
               <div
-                style={{ width: `${sizes.boardWidth}%`, minWidth: '220px' }}
-                className="px-4 py-2 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border-2 border-slate-600 transition-all"
+                style={{ width: `${sizes.boardWidth}%`, minWidth: '180px' }}
+                className="px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm border-2 border-slate-600 transition-all"
                 title="Quadro / Lousa da sala"
               >
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
@@ -1017,7 +1040,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   transform: `scale(${sizes.teacherDeskScale})`,
                   transformOrigin: 'right center',
                 }}
-                className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm border-2 border-amber-400 shrink-0 transition-transform"
+                className="px-2.5 py-1 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-sm border-2 border-amber-400 shrink-0 transition-transform"
                 title="Mesa do Professor"
               >
                 <Briefcase className="w-3.5 h-3.5 text-white" />
@@ -1026,9 +1049,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
             </div>
 
             {/* CONTAINER COM SCROLL HORIZONTAL SUAVE PARA O GRID DE CARTEIRAS */}
-            <div className="w-full overflow-x-auto pb-2 flex justify-center">
+            <div className="w-full overflow-x-auto pb-2 flex justify-start sm:justify-center">
               {/* GRADE DE CARTEIRAS COM CABEÇALHOS DE COLUNA (A, B, C...) E LINHA (1, 2, 3...) */}
-              <div className="z-10 py-2 px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs inline-flex flex-col items-center min-w-max">
+              <div className="z-10 py-2 px-2 sm:px-3 bg-slate-50/80 rounded-xl border border-slate-200 shadow-2xs inline-flex flex-col items-center min-w-max">
                 
                 {/* CABEÇALHO DAS COLUNAS: A, B, C, D... */}
                 <div className="flex items-center gap-1.5 mb-1.5">
@@ -1081,6 +1104,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                             draggedSeat?.r === r && draggedSeat?.c === c;
                           const isDropTarget =
                             dropTargetSeat?.r === r && dropTargetSeat?.c === c;
+                          const isSelectedToMove =
+                            selectedSeatToMove?.r === r && selectedSeatToMove?.c === c;
 
                           return (
                             <div
@@ -1117,7 +1142,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                               onClick={() => handleSeatClick(r, c)}
                               onDoubleClick={() => handleSeatDoubleClick(r, c)}
                               className={`h-14 p-1.5 rounded-xl border-2 flex flex-col justify-between transition-all duration-150 select-none cursor-pointer relative min-w-[72px] ${
-                                isBeingDragged
+                                isSelectedToMove
+                                  ? 'border-indigo-600 bg-indigo-100 ring-4 ring-indigo-500 scale-105 z-30 animate-pulse'
+                                  : isBeingDragged
                                   ? 'opacity-40 border-dashed border-indigo-400 scale-95'
                                   : isDropTarget
                                   ? 'border-indigo-600 bg-indigo-100/90 ring-4 ring-indigo-400 scale-105 z-20'
@@ -1129,8 +1156,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                               }`}
                               title={
                                 studentName
-                                  ? `${studentName} • Carteira ${seatCoordLabel} (${studentOccCount} ocorrências, ${studentObsCount} observações) ${canEditLayout ? '• Arraste para trocar de lugar' : ''}`
-                                  : `Carteira livre (${seatCoordLabel}) ${canEditLayout && draggedSeat ? '• Solte aqui para mover' : ''}`
+                                  ? `${studentName} • Carteira ${seatCoordLabel} (${studentOccCount} ocorrências, ${studentObsCount} observações) ${canEditLayout ? '• Toque ou arraste para trocar de lugar' : ''}`
+                                  : `Carteira livre (${seatCoordLabel}) ${canEditLayout && (draggedSeat || selectedSeatToMove) ? '• Toque para mover para cá' : ''}`
                               }
                             >
                               {/* Indicador superior com Coordenada e Badges de Alerta */}
@@ -1243,6 +1270,27 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Botão de Trocar de Lugar (Especialmente útil e direto no celular) */}
+                {canEditLayout && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSeatToMove({
+                        r: activeStudentModal.r,
+                        c: activeStudentModal.c,
+                        studentName: activeStudentModal.name,
+                      });
+                      setActiveStudentModal(null);
+                      showToast(`Selecione a carteira de destino para mover ${activeStudentModal.name}`);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                    title="Mover este aluno para outra carteira"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                    <span>Trocar de Lugar</span>
+                  </button>
+                )}
+
                 {/* Botão de Lançar Nova Ocorrência Oficial */}
                 <button
                   type="button"
