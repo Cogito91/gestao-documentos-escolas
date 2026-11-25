@@ -204,6 +204,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
   const [matrixSearch, setMatrixSearch] = useState('');
   const [matrixAnoFilter, setMatrixAnoFilter] = useState<string>('all');
   const [matrixBimestreFilter, setMatrixBimestreFilter] = useState<string>('all');
+  const [selectedMatrixTopics, setSelectedMatrixTopics] = useState<Array<{ key: string; text: string }>>([]);
   const [formActivities, setFormActivities] = useState('');
   const [formClasswork, setFormClasswork] = useState('');
   const [formHomework, setFormHomework] = useState('');
@@ -697,12 +698,13 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     const q = matrixSearch.trim().toLowerCase();
     return disciplineMatrixItems.filter((item) => {
       if (matrixAnoFilter !== 'all' && item.ano !== matrixAnoFilter) return false;
-      if (matrixBimestreFilter !== 'all' && !item.bimestre.toUpperCase().includes(matrixBimestreFilter)) {
+      if (matrixBimestreFilter !== 'all' && !item.bimestre.toUpperCase().startsWith(matrixBimestreFilter)) {
         return false;
       }
       if (!q) return true;
       return (
         item.objeto.toLowerCase().includes(q) ||
+        item.objetoItems?.some((sub) => sub.toLowerCase().includes(q)) ||
         item.habilidade.toLowerCase().includes(q) ||
         item.codigo.toLowerCase().includes(q) ||
         item.unidadeTematica.toLowerCase().includes(q)
@@ -716,7 +718,22 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     setMatrixAnoFilter(gradeMatch ? `${gradeMatch[1]} ANO` : 'all');
     setMatrixBimestreFilter('all');
     setMatrixSearch('');
+    setSelectedMatrixTopics([]);
     setIsMatrixPickerOpen(true);
+  };
+
+  const toggleMatrixTopic = (key: string, text: string) => {
+    setSelectedMatrixTopics((prev) =>
+      prev.some((t) => t.key === key) ? prev.filter((t) => t.key !== key) : [...prev, { key, text }]
+    );
+  };
+
+  const handleConfirmMatrixTopics = () => {
+    if (selectedMatrixTopics.length === 0) return;
+    const block = selectedMatrixTopics.map((t) => t.text).join('\n');
+    setFormActivities((prev) => (prev.trim() ? `${prev.trim()}\n${block}` : block));
+    setIsMatrixPickerOpen(false);
+    setSelectedMatrixTopics([]);
   };
 
   // Exportar PDF / Imprimir relatório do Diário de Bordo
@@ -2392,7 +2409,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Buscar assunto, habilidade ou código BNCC..."
+                  placeholder="Buscar objeto de conhecimento, habilidade ou código..."
                   value={matrixSearch}
                   onChange={(e) => setMatrixSearch(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -2418,50 +2435,116 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                   className="px-2.5 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-xl outline-none"
                 >
                   <option value="all">Todos os bimestres</option>
-                  <option value="1º">1º Bimestre</option>
-                  <option value="2º">2º Bimestre</option>
-                  <option value="3º">3º Bimestre</option>
-                  <option value="4º">4º Bimestre</option>
+                  <option value="1">1º Bimestre</option>
+                  <option value="2">2º Bimestre</option>
+                  <option value="3">3º Bimestre</option>
+                  <option value="4">4º Bimestre</option>
                 </select>
               </div>
             </div>
 
-            <div className="p-3.5 space-y-2 overflow-y-auto flex-1">
+            <div className="p-3.5 space-y-3 overflow-y-auto flex-1">
               {filteredMatrixItems.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
                   Nenhum item da matriz encontrado para esse filtro.
                 </div>
               ) : (
-                filteredMatrixItems.slice(0, 60).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      const text = item.codigo ? `${item.objeto} (${item.codigo})` : item.objeto;
-                      setFormActivities((prev) => (prev.trim() ? `${prev.trim()}\n${text}` : text));
-                      setIsMatrixPickerOpen(false);
-                    }}
-                    className="w-full text-left p-3 rounded-2xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 transition space-y-1 bg-white"
-                  >
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                        {item.codigo || item.unidadeTematica}
-                      </span>
-                      <span className="text-[10px] font-bold text-slate-500">
-                        {item.ano.replace(' ANO', 'º Ano')} • {item.bimestre}
-                      </span>
+                filteredMatrixItems.slice(0, 60).map((item) => {
+                  const individualTopics =
+                    item.objetoItems && item.objetoItems.length > 0
+                      ? item.objetoItems
+                      : [item.objeto];
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-3 rounded-2xl border border-slate-200 bg-white space-y-2 shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 flex-wrap border-b border-slate-100 pb-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                            {item.codigo || item.unidadeTematica}
+                          </span>
+                          {item.unidadeTematica && item.unidadeTematica !== '-' && (
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {item.unidadeTematica}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold text-slate-500">
+                          {item.ano.replace(' ANO', 'º Ano')} • {item.bimestre}
+                        </span>
+                      </div>
+
+                      {/* Caixas de seleção individuais para cada Objeto de Conhecimento */}
+                      <div className="space-y-1.5">
+                        {individualTopics.map((topic, idx) => {
+                          const key = `${item.id}-${idx}`;
+                          const formatted = item.codigo ? `${topic} (${item.codigo})` : topic;
+                          const isChecked = selectedMatrixTopics.some((t) => t.key === key);
+
+                          return (
+                            <label
+                              key={key}
+                              className={`flex items-start gap-2.5 p-2 rounded-xl border cursor-pointer transition ${
+                                isChecked
+                                  ? 'bg-indigo-50 border-indigo-400 text-indigo-950'
+                                  : 'bg-slate-50/70 border-slate-200/80 hover:border-indigo-300 text-slate-800'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleMatrixTopic(key, formatted)}
+                                className="w-4 h-4 mt-0.5 accent-indigo-600 rounded cursor-pointer shrink-0"
+                              />
+                              <span className="text-xs font-semibold leading-snug">{topic}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <p className="text-xs font-extrabold text-slate-900 leading-snug">
-                      {item.objeto}
-                    </p>
-                    {item.habilidade && (
-                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug">
-                        {item.habilidade}
-                      </p>
-                    )}
-                  </button>
-                ))
+                  );
+                })
               )}
+            </div>
+
+            {/* Rodapé com contagem e botão de confirmar */}
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-slate-700">
+                  {selectedMatrixTopics.length}{' '}
+                  {selectedMatrixTopics.length === 1 ? 'selecionado' : 'selecionados'}
+                </span>
+                {selectedMatrixTopics.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMatrixTopics([])}
+                    className="text-[11px] font-bold text-rose-600 hover:underline"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMatrixPickerOpen(false)}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200/70 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedMatrixTopics.length === 0}
+                  onClick={handleConfirmMatrixTopics}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-extrabold rounded-xl shadow-sm transition flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Adicionar ({selectedMatrixTopics.length})</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
