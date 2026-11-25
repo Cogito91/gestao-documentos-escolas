@@ -23,6 +23,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { DocumentCategory, SchoolEvent } from '../../types/database.types';
+import { teacherCalendarService } from '../../services/teacherCalendarService';
 
 interface TeacherCalendarModalProps {
   isOpen: boolean;
@@ -76,21 +77,23 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   const lastTapRef = useRef<{ time: number; dateStr: string } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const loadData = () => {
+  const loadData = async () => {
+    // 1. Carrega do cache local imediato
+    const local = teacherCalendarService.getLocalData();
+    setSavedAssessments(local.assessments);
+    setSavedActivities(local.activities);
+    setSavedCustomEvents(local.customEvents);
+    setSavedDailyLogs(local.dailyLogs);
+
+    // 2. Sincroniza em segundo plano com o Supabase na nuvem
     try {
-      const assessments = JSON.parse(localStorage.getItem('teacher_scheduled_assessments') || '[]');
-      const activities = JSON.parse(localStorage.getItem('teacher_scheduled_activities') || '[]');
-      const customEvents = JSON.parse(localStorage.getItem('teacher_custom_events') || '[]');
-      const dailyLogs = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
-      setSavedAssessments(assessments);
-      setSavedActivities(activities);
-      setSavedCustomEvents(customEvents);
-      setSavedDailyLogs(dailyLogs);
-    } catch {
-      setSavedAssessments([]);
-      setSavedActivities([]);
-      setSavedCustomEvents([]);
-      setSavedDailyLogs([]);
+      const synced = await teacherCalendarService.syncFromCloud();
+      setSavedAssessments(synced.assessments);
+      setSavedActivities(synced.activities);
+      setSavedCustomEvents(synced.customEvents);
+      setSavedDailyLogs(synced.dailyLogs);
+    } catch (err) {
+      console.warn('Erro ao sincronizar calendário com a nuvem:', err);
     }
   };
 
@@ -323,6 +326,9 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       });
       localStorage.setItem('teacher_scheduled_assessments', JSON.stringify(list));
     }
+
+    // Persiste e sincroniza com o Supabase na nuvem
+    teacherCalendarService.saveToCloud(teacherCalendarService.getLocalData());
 
     loadData();
     setSelectedDayEvents(quickAddModalDate);
@@ -619,6 +625,9 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       localStorage.setItem('teacher_daily_logs', JSON.stringify(filtered));
       loadData();
     }
+
+    // Sincroniza a exclusão no Supabase
+    teacherCalendarService.saveToCloud(teacherCalendarService.getLocalData());
   };
 
   if (!isOpen) return null;
