@@ -2392,7 +2392,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                   <span>Puxar da Matriz Curricular</span>
                 </h4>
                 <p className="text-[11px] text-indigo-100 mt-0.5 truncate">
-                  {teacherDiscipline || 'Disciplina'} • Toque em um assunto para preencher a aula
+                  {teacherDiscipline || 'Disciplina'} • Marque um ou mais objetos de conhecimento
                 </p>
               </div>
               <button
