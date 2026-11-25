@@ -1069,9 +1069,9 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                   <span className="font-bold text-slate-700">Tamanho da Porta:</span>
                   <input
                     type="range"
-                    min="0.7"
-                    max="1.6"
-                    step="0.1"
+                    min="0.6"
+                    max="2.0"
+                    step="0.05"
                     value={sizes.doorScale}
                     onChange={(e) => handleUpdateSize('doorScale', Number(e.target.value))}
                     className="w-20 sm:w-28 accent-emerald-600 cursor-pointer"
@@ -1164,15 +1164,15 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 top: `${positions.door.y}%`,
                 transform:
                   doorWall === 'left'
-                    ? 'translate(-50%, -50%) rotate(-90deg)'
+                    ? `translate(-50%, -50%) rotate(-90deg) scale(${sizes.doorScale})`
                     : doorWall === 'right'
-                    ? 'translate(-50%, -50%) rotate(90deg)'
-                    : 'translate(-50%, -50%)',
+                    ? `translate(-50%, -50%) rotate(90deg) scale(${sizes.doorScale})`
+                    : `translate(-50%, -50%) scale(${sizes.doorScale})`,
                 transformOrigin: 'center center',
                 touchAction: 'none',
               }}
-              className={`z-30 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-emerald-400 select-none ${
-                canEditLayout ? 'cursor-move active:scale-95 hover:border-emerald-300' : 'cursor-default'
+              className={`z-30 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-emerald-400 select-none transition-transform ${
+                canEditLayout ? 'cursor-move hover:border-emerald-300' : 'cursor-default'
               }`}
               title="Porta de Entrada (Arraste para fixar em qualquer parede da sala)"
             >
