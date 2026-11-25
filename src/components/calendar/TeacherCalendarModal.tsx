@@ -15,11 +15,12 @@ import {
   Filter,
   Pencil,
   Eraser,
-  RotateCcw,
   Plus,
   Sparkles,
   Check,
   Palette,
+  Users,
+  BookOpen,
 } from 'lucide-react';
 import { DocumentCategory, SchoolEvent } from '../../types/database.types';
 
@@ -40,6 +41,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'documents' | 'assessments' | 'activities' | 'events'>('all');
+  const [selectedTurmaFilter, setSelectedTurmaFilter] = useState<string>('all');
   const [selectedDayEvents, setSelectedDayEvents] = useState<string | null>(null);
 
   // Carrega atividades, avaliações e diários de bordo do professor salvas no localStorage
@@ -246,11 +248,12 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       setDailyActivitiesToday(existing.activitiesToday || '');
       setDailyClasswork(existing.classwork || '');
       setDailyHomework(existing.homework || '');
-      setQuickAddTurma(existing.turma || '');
+      setQuickAddTurma(existing.turma || (selectedTurmaFilter !== 'all' && selectedTurmaFilter !== 'today_classes' ? selectedTurmaFilter : ''));
     } else {
       setDailyActivitiesToday('');
       setDailyClasswork('');
       setDailyHomework('');
+      setQuickAddTurma(selectedTurmaFilter !== 'all' && selectedTurmaFilter !== 'today_classes' ? selectedTurmaFilter : '');
     }
   };
 
@@ -354,6 +357,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       date: string; // YYYY-MM-DD
       type: 'document' | 'assessment' | 'activity' | 'event' | 'daily_log';
       details?: string;
+      turma?: string;
       meta?: any;
     }> = [];
 
@@ -374,6 +378,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           date: cleanDate,
           type: 'document',
           details: `Documento pendente do ${cat.bimestre || 'bimestre'}.`,
+          turma: (cat as any).turma,
           meta: cat,
         });
       }
@@ -389,6 +394,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           date: cleanDate,
           type: 'assessment',
           details: `Turma: ${ass.turma} • ${ass.objects?.length || 0} objeto(s) vinculados.`,
+          turma: ass.turma,
           meta: ass,
         });
       }
@@ -404,6 +410,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           date: cleanDate,
           type: 'activity',
           details: `Turma: ${act.turma} • ${act.objects?.length || 0} objeto(s) vinculados.`,
+          turma: act.turma,
           meta: act,
         });
       }
@@ -434,6 +441,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           date: cleanDate,
           type: 'event',
           details: ev.details || (ev.turma ? `Turma: ${ev.turma}` : 'Evento / Lembrete'),
+          turma: ev.turma,
           meta: ev,
         });
       }
@@ -455,6 +463,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           date: cleanDate,
           type: 'daily_log' as any,
           details: detailsList.join(' • ') + (log.turma ? ` (${log.turma})` : ''),
+          turma: log.turma,
           meta: log,
         });
       }
@@ -463,15 +472,59 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
     return items;
   }, [pendingCategories, savedAssessments, savedActivities, savedCustomEvents, savedDailyLogs, schoolEvents, year]);
 
-  // Filtra itens conforme categoria selecionada
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }, []);
+
+  // Coleta turmas disponíveis no sistema
+  const availableTurmas = useMemo(() => {
+    const set = new Set<string>();
+    allCalendarItems.forEach((item) => {
+      if (item.turma && item.turma.trim()) {
+        set.add(item.turma.trim());
+      }
+    });
+    // Se ainda não houver nenhuma cadastrada, sugere opções padrão
+    ['9º Ano A', '9º Ano B', '8º Ano A', '8º Ano B', '7º Ano A', '6º Ano A'].forEach((t) => set.add(t));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [allCalendarItems]);
+
+  // Turmas com aula/agendamento no dia de hoje
+  const todaysTurmas = useMemo(() => {
+    const set = new Set<string>();
+    allCalendarItems.forEach((item) => {
+      if (item.date === todayStr && item.turma && item.turma.trim()) {
+        set.add(item.turma.trim());
+      }
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [allCalendarItems, todayStr]);
+
+  // Filtra itens conforme categoria e turma selecionada
   const filteredItems = useMemo(() => {
-    if (selectedFilter === 'all') return allCalendarItems;
-    if (selectedFilter === 'documents') return allCalendarItems.filter(i => i.type === 'document');
-    if (selectedFilter === 'assessments') return allCalendarItems.filter(i => i.type === 'assessment');
-    if (selectedFilter === 'activities') return allCalendarItems.filter(i => i.type === 'activity');
-    if (selectedFilter === 'events') return allCalendarItems.filter(i => i.type === 'event');
-    return allCalendarItems;
-  }, [allCalendarItems, selectedFilter]);
+    let result = allCalendarItems;
+
+    // 1. Filtro por tipo/categoria
+    if (selectedFilter === 'documents') result = result.filter(i => i.type === 'document');
+    else if (selectedFilter === 'assessments') result = result.filter(i => i.type === 'assessment');
+    else if (selectedFilter === 'activities') result = result.filter(i => i.type === 'activity');
+    else if (selectedFilter === 'events') result = result.filter(i => i.type === 'event');
+
+    // 2. Filtro por Turma
+    if (selectedTurmaFilter === 'today_classes') {
+      result = result.filter(i => i.date === todayStr && i.turma);
+    } else if (selectedTurmaFilter !== 'all') {
+      const target = selectedTurmaFilter.toLowerCase().trim();
+      result = result.filter(i => {
+        if (!i.turma) return false;
+        const itemTurma = i.turma.toLowerCase().trim();
+        return itemTurma === target || itemTurma.includes(target) || target.includes(itemTurma);
+      });
+    }
+
+    return result;
+  }, [allCalendarItems, selectedFilter, selectedTurmaFilter, todayStr]);
 
   // Mapa de itens por data (YYYY-MM-DD)
   const itemsByDate = useMemo(() => {
@@ -785,18 +838,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                   <span className="hidden sm:inline">Borracha</span>
                 </button>
 
-                {/* Limpar */}
-                {hasDoodle && (
-                  <button
-                    type="button"
-                    onClick={handleClearCanvas}
-                    className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[11px] font-bold transition cursor-pointer"
-                    title="Apagar todos os rabiscos"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                  </button>
-                )}
-
                 {/* Concluir */}
                 <button
                   type="button"
@@ -836,6 +877,82 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
               </div>
             )}
           </div>
+        </div>
+
+        {/* Barra de Filtro de Turma e Aulas do Dia */}
+        <div className="px-6 py-2 bg-indigo-50/50 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 font-extrabold text-indigo-950">
+              <Users className="w-4 h-4 text-indigo-600" />
+              <span>Filtrar por Turma:</span>
+            </div>
+
+            {/* Dropdown seletor de turmas */}
+            <div className="relative inline-flex items-center">
+              <select
+                value={selectedTurmaFilter}
+                onChange={(e) => setSelectedTurmaFilter(e.target.value)}
+                className="pl-3 pr-8 py-1 rounded-xl bg-white border border-indigo-200 font-extrabold text-xs text-indigo-950 shadow-2xs focus:ring-2 focus:ring-indigo-400 focus:outline-none cursor-pointer"
+              >
+                <option value="all">Todas as Turmas (Visão Geral)</option>
+                <option value="today_classes">
+                  ⭐ Somente Aulas de Hoje {todaysTurmas.length > 0 ? `(${todaysTurmas.join(', ')})` : ''}
+                </option>
+                <optgroup label="Turmas">
+                  {availableTurmas.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            {/* Botões Rápidos para as Turmas de Hoje */}
+            {todaysTurmas.length > 0 && (
+              <div className="flex items-center gap-1.5 pl-2 border-l border-indigo-200">
+                <span className="text-[11px] font-bold text-slate-500">Turmas de hoje:</span>
+                {todaysTurmas.map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setSelectedTurmaFilter(selectedTurmaFilter === t ? 'all' : t)}
+                    className={`px-2 py-0.5 rounded-lg text-[11px] font-black transition cursor-pointer border ${
+                      selectedTurmaFilter === t
+                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                        : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-50'
+                    }`}
+                    title={`Ver somente o que foi feito na turma ${t}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Indicador de Filtro Ativo */}
+          {selectedTurmaFilter !== 'all' && (
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-600 text-white font-black text-[11px] shadow-2xs">
+                <span>
+                  {selectedTurmaFilter === 'today_classes'
+                    ? 'Exibindo somente Aulas de Hoje'
+                    : `Histórico exclusivo: ${selectedTurmaFilter}`}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-extrabold">
+                  {filteredItems.length} item(ns)
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedTurmaFilter('all')}
+                className="text-[11px] font-bold text-indigo-700 hover:text-rose-600 underline cursor-pointer"
+              >
+                Limpar filtro de turma
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Grade do Calendário + Painel Lateral de Detalhes */}
@@ -982,13 +1099,17 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                   <Clock className="w-4 h-4 text-sky-600" />
                   <span>
                     {selectedDayEvents
-                      ? `Itens do dia ${selectedDayEvents.split('-').reverse().join('/')}`
+                      ? `Itens do dia ${selectedDayEvents.split('-').reverse().join('/')}${selectedTurmaFilter !== 'all' ? ` (${selectedTurmaFilter})` : ''}`
+                      : selectedTurmaFilter !== 'all'
+                      ? `Histórico de Aulas: ${selectedTurmaFilter}`
                       : 'Próximos Prazos & Compromissos'}
                   </span>
                 </h4>
                 <p className="text-[11px] text-slate-500">
                   {selectedDayEvents
                     ? 'Clique no dia novamente para ver todos'
+                    : selectedTurmaFilter !== 'all'
+                    ? `Visualizando apenas observações e diários do ${selectedTurmaFilter}`
                     : 'Listagem cronológica organizada'}
                 </p>
               </div>
@@ -1054,9 +1175,17 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                       className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs hover:border-sky-300 transition space-y-1.5"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${badge.classes}`}>
-                          {badge.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${badge.classes}`}>
+                            {badge.label}
+                          </span>
+                          {item.turma && (
+                            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-violet-100 text-violet-900 border border-violet-200 flex items-center gap-1">
+                              <Users className="w-2.5 h-2.5" />
+                              <span>{item.turma}</span>
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 font-mono">
                           <CalendarIcon className="w-3 h-3 text-slate-400" />
                           <span>{formattedDate}</span>
