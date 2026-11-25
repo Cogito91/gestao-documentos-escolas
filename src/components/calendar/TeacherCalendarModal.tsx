@@ -42,17 +42,23 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'documents' | 'assessments' | 'activities' | 'events'>('all');
   const [selectedDayEvents, setSelectedDayEvents] = useState<string | null>(null);
 
-  // Carrega atividades e avaliações do professor salvas no localStorage
+  // Carrega atividades, avaliações e diários de bordo do professor salvas no localStorage
   const [savedAssessments, setSavedAssessments] = useState<any[]>([]);
   const [savedActivities, setSavedActivities] = useState<any[]>([]);
   const [savedCustomEvents, setSavedCustomEvents] = useState<any[]>([]);
+  const [savedDailyLogs, setSavedDailyLogs] = useState<any[]>([]);
 
-  // Modal rápido de agendamento por duplo clique
+  // Modal rápido de agendamento por duplo clique / clique e segura
   const [quickAddModalDate, setQuickAddModalDate] = useState<string | null>(null);
-  const [quickAddType, setQuickAddType] = useState<'activity' | 'assessment' | 'event'>('activity');
+  const [quickAddType, setQuickAddType] = useState<'daily_log' | 'activity' | 'assessment'>('daily_log');
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddTurma, setQuickAddTurma] = useState('');
   const [quickAddDetails, setQuickAddDetails] = useState('');
+
+  // Campos específicos do Diário de Bordo
+  const [dailyActivitiesToday, setDailyActivitiesToday] = useState('');
+  const [dailyClasswork, setDailyClasswork] = useState('');
+  const [dailyHomework, setDailyHomework] = useState('');
 
   // Ferramenta Canetinha / Rabiscar sobre o calendário
   const [isDrawMode, setIsDrawMode] = useState(false);
@@ -66,19 +72,23 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   const isDrawingRef = useRef(false);
   const lastPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const lastTapRef = useRef<{ time: number; dateStr: string } | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadData = () => {
     try {
       const assessments = JSON.parse(localStorage.getItem('teacher_scheduled_assessments') || '[]');
       const activities = JSON.parse(localStorage.getItem('teacher_scheduled_activities') || '[]');
       const customEvents = JSON.parse(localStorage.getItem('teacher_custom_events') || '[]');
+      const dailyLogs = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
       setSavedAssessments(assessments);
       setSavedActivities(activities);
       setSavedCustomEvents(customEvents);
+      setSavedDailyLogs(dailyLogs);
     } catch {
       setSavedAssessments([]);
       setSavedActivities([]);
       setSavedCustomEvents([]);
+      setSavedDailyLogs([]);
     }
   };
 
@@ -220,17 +230,43 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
     setHasDoodle(false);
   };
 
-  // Handlers de Duplo Clique & Duplo Toque para adicionar eventos/atividades
+  // Handlers de Duplo Clique, Duplo Toque e Clique & Segura (Long Press)
   const handleDayDoubleClick = (dateStr: string) => {
     setIsDrawMode(false);
     setQuickAddModalDate(dateStr);
+    setQuickAddType('daily_log');
     setQuickAddTitle('');
     setQuickAddTurma('');
     setQuickAddDetails('');
-    setQuickAddType('activity');
+
+    // Se já houver um registro de Diário de Bordo para este dia, pré-carrega para facilitar edição
+    const dailyLogs = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
+    const existing = dailyLogs.find((d: any) => d.date === dateStr);
+    if (existing) {
+      setDailyActivitiesToday(existing.activitiesToday || '');
+      setDailyClasswork(existing.classwork || '');
+      setDailyHomework(existing.homework || '');
+      setQuickAddTurma(existing.turma || '');
+    } else {
+      setDailyActivitiesToday('');
+      setDailyClasswork('');
+      setDailyHomework('');
+    }
   };
 
-  const handleDayTouchEnd = (dateStr: string) => {
+  const handleDayMouseDownOrTouchStart = (dateStr: string) => {
+    if (isDrawMode) return;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      handleDayDoubleClick(dateStr);
+    }, 450); // 450ms = Long Press
+  };
+
+  const handleDayMouseUpOrTouchEnd = (dateStr: string) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
     if (isDrawMode) return;
     const now = Date.now();
     if (lastTapRef.current && now - lastTapRef.current.time < 350 && lastTapRef.current.dateStr === dateStr) {
@@ -243,27 +279,46 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
 
   const handleSaveQuickItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickAddModalDate || !quickAddTitle.trim()) return;
+    if (!quickAddModalDate) return;
 
-    const newItem = {
-      id: 'custom-' + Date.now().toString(),
-      title: quickAddTitle.trim(),
-      turma: quickAddTurma.trim() || undefined,
-      details: quickAddDetails.trim() || undefined,
-    };
-
-    if (quickAddType === 'assessment') {
-      const list = JSON.parse(localStorage.getItem('teacher_scheduled_assessments') || '[]');
-      list.push({ ...newItem, date: quickAddModalDate });
-      localStorage.setItem('teacher_scheduled_assessments', JSON.stringify(list));
+    if (quickAddType === 'daily_log') {
+      if (!dailyActivitiesToday.trim() && !dailyClasswork.trim() && !dailyHomework.trim()) {
+        alert('Por favor, preencha pelo menos um dos campos do Diário de Bordo.');
+        return;
+      }
+      const list = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
+      const filtered = list.filter((d: any) => d.date !== quickAddModalDate);
+      filtered.push({
+        id: 'daily-' + Date.now().toString(),
+        date: quickAddModalDate,
+        turma: quickAddTurma.trim() || undefined,
+        activitiesToday: dailyActivitiesToday.trim(),
+        classwork: dailyClasswork.trim(),
+        homework: dailyHomework.trim(),
+      });
+      localStorage.setItem('teacher_daily_logs', JSON.stringify(filtered));
     } else if (quickAddType === 'activity') {
+      if (!quickAddTitle.trim()) return;
       const list = JSON.parse(localStorage.getItem('teacher_scheduled_activities') || '[]');
-      list.push({ ...newItem, dueDate: quickAddModalDate });
+      list.push({
+        id: 'custom-' + Date.now().toString(),
+        title: quickAddTitle.trim(),
+        turma: quickAddTurma.trim() || undefined,
+        details: quickAddDetails.trim() || undefined,
+        dueDate: quickAddModalDate,
+      });
       localStorage.setItem('teacher_scheduled_activities', JSON.stringify(list));
     } else {
-      const list = JSON.parse(localStorage.getItem('teacher_custom_events') || '[]');
-      list.push({ ...newItem, event_date: quickAddModalDate });
-      localStorage.setItem('teacher_custom_events', JSON.stringify(list));
+      if (!quickAddTitle.trim()) return;
+      const list = JSON.parse(localStorage.getItem('teacher_scheduled_assessments') || '[]');
+      list.push({
+        id: 'custom-' + Date.now().toString(),
+        title: quickAddTitle.trim(),
+        turma: quickAddTurma.trim() || undefined,
+        details: quickAddDetails.trim() || undefined,
+        date: quickAddModalDate,
+      });
+      localStorage.setItem('teacher_scheduled_assessments', JSON.stringify(list));
     }
 
     loadData();
@@ -297,7 +352,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       id: string;
       title: string;
       date: string; // YYYY-MM-DD
-      type: 'document' | 'assessment' | 'activity' | 'event';
+      type: 'document' | 'assessment' | 'activity' | 'event' | 'daily_log';
       details?: string;
       meta?: any;
     }> = [];
@@ -384,8 +439,29 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       }
     });
 
+    // 6. Diários de Bordo do Professor (Hoje & Tarefas)
+    savedDailyLogs.forEach((log) => {
+      if (log.date) {
+        const cleanDate = log.date.split('T')[0];
+        const preview = log.activitiesToday || log.classwork || log.homework || 'Registro de aula';
+        const detailsList = [];
+        if (log.activitiesToday) detailsList.push(`Hoje: ${log.activitiesToday}`);
+        if (log.classwork) detailsList.push(`Sala: ${log.classwork}`);
+        if (log.homework) detailsList.push(`Casa: ${log.homework}`);
+
+        items.push({
+          id: log.id || `daily-${cleanDate}`,
+          title: `Diário: ${preview}`,
+          date: cleanDate,
+          type: 'daily_log' as any,
+          details: detailsList.join(' • ') + (log.turma ? ` (${log.turma})` : ''),
+          meta: log,
+        });
+      }
+    });
+
     return items;
-  }, [pendingCategories, savedAssessments, savedActivities, savedCustomEvents, schoolEvents, year]);
+  }, [pendingCategories, savedAssessments, savedActivities, savedCustomEvents, savedDailyLogs, schoolEvents, year]);
 
   // Filtra itens conforme categoria selecionada
   const filteredItems = useMemo(() => {
@@ -482,6 +558,12 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       const saved = JSON.parse(localStorage.getItem('teacher_custom_events') || '[]');
       const filtered = saved.filter((e: any) => e.id !== item.id && e.id !== item.meta?.id);
       localStorage.setItem('teacher_custom_events', JSON.stringify(filtered));
+      loadData();
+    } else if (item.type === 'daily_log') {
+      if (!confirm('Deseja remover este registro do Diário de Bordo?')) return;
+      const list = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
+      const filtered = list.filter((d: any) => d.id !== item.id && d.date !== item.date);
+      localStorage.setItem('teacher_daily_logs', JSON.stringify(filtered));
       loadData();
     }
   };
@@ -618,35 +700,141 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
               </button>
             </div>
 
-            {/* Botão Canetinha e Botão Novo */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setIsDrawMode(!isDrawMode)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 shadow-2xs ${
-                  isDrawMode
-                    ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-300'
-                    : hasDoodle
-                    ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                }`}
-                title="Rabiscar e desenhar sobre o calendário com uma canetinha"
-              >
-                <Pencil className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden sm:inline">Caneta / Rabiscar</span>
-                {hasDoodle && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
-              </button>
+            {/* Botão Canetinha e Botão Novo / Controles da Caneta no Topo */}
+            {isDrawMode ? (
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-900 text-white px-2.5 py-1 rounded-xl shadow-md border border-slate-700 animate-fadeIn">
+                <div className="flex items-center gap-1 pr-1 border-r border-slate-700">
+                  <Pencil className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-[11px] font-black text-amber-300 hidden md:inline">Caneta</span>
+                </div>
 
-              <button
-                type="button"
-                onClick={() => handleDayDoubleClick(new Date().toISOString().split('T')[0])}
-                className="px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-2xs transition flex items-center gap-1"
-                title="Adicionar Atividade ou Evento"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Novo</span>
-              </button>
-            </div>
+                {/* Cores */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { color: '#ef4444', label: 'Vermelho' },
+                    { color: '#eab308', label: 'Amarelo' },
+                    { color: '#3b82f6', label: 'Azul' },
+                    { color: '#10b981', label: 'Verde' },
+                    { color: '#8b5cf6', label: 'Roxo' },
+                    { color: '#1e293b', label: 'Grafite' },
+                  ].map((c) => (
+                    <button
+                      key={c.color}
+                      type="button"
+                      onClick={() => {
+                        setDrawColor(c.color);
+                        setIsEraser(false);
+                      }}
+                      style={{ backgroundColor: c.color }}
+                      className={`w-4 h-4 rounded-full border-2 transition cursor-pointer ${
+                        !isEraser && drawColor === c.color
+                          ? 'border-white scale-110 shadow-xs'
+                          : 'border-transparent opacity-70 hover:opacity-100'
+                      }`}
+                      title={c.label}
+                    />
+                  ))}
+                </div>
+
+                {/* Espessura */}
+                <div className="flex items-center gap-0.5 bg-slate-800 px-1 py-0.5 rounded text-[10px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDrawSize(2)}
+                    className={`px-1.5 py-0.5 rounded transition cursor-pointer ${
+                      drawSize === 2 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Traço Fino"
+                  >
+                    1x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDrawSize(4)}
+                    className={`px-1.5 py-0.5 rounded transition cursor-pointer ${
+                      drawSize === 4 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Traço Médio"
+                  >
+                    2x
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDrawSize(7)}
+                    className={`px-1.5 py-0.5 rounded transition cursor-pointer ${
+                      drawSize === 7 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Traço Grosso"
+                  >
+                    3x
+                  </button>
+                </div>
+
+                {/* Borracha */}
+                <button
+                  type="button"
+                  onClick={() => setIsEraser(!isEraser)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold transition cursor-pointer ${
+                    isEraser
+                      ? 'bg-amber-500 text-slate-950 font-black'
+                      : 'bg-slate-800 text-slate-300 hover:text-white'
+                  }`}
+                  title="Alternar Borracha"
+                >
+                  <Eraser className="w-3 h-3" />
+                  <span className="hidden sm:inline">Borracha</span>
+                </button>
+
+                {/* Limpar */}
+                {hasDoodle && (
+                  <button
+                    type="button"
+                    onClick={handleClearCanvas}
+                    className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-600/80 hover:bg-rose-600 text-white rounded text-[11px] font-bold transition cursor-pointer"
+                    title="Apagar todos os rabiscos"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                  </button>
+                )}
+
+                {/* Concluir */}
+                <button
+                  type="button"
+                  onClick={() => setIsDrawMode(false)}
+                  className="px-2.5 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black rounded-lg shadow transition flex items-center gap-1 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Concluir</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setIsDrawMode(true)}
+                  className={`px-2.5 py-1 text-xs font-bold rounded-xl border transition flex items-center gap-1.5 shadow-2xs cursor-pointer ${
+                    hasDoodle
+                      ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Rabiscar e desenhar sobre o calendário com uma canetinha"
+                >
+                  <Pencil className="w-3.5 h-3.5 text-amber-600" />
+                  <span className="hidden sm:inline">Caneta / Rabiscar</span>
+                  {hasDoodle && <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDayDoubleClick(new Date().toISOString().split('T')[0])}
+                  className="px-2.5 py-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-2xs transition flex items-center gap-1 cursor-pointer"
+                  title="Novo Registro ou Agendamento"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Novo</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -656,120 +844,11 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           {/* Coluna da Grade Mensal com suporte a Rabisco/Caneta e Duplo Clique */}
           <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs flex flex-col relative select-none">
             
-            {/* BARRA FLUTUANTE DE FERRAMENTAS DO MODO CANETA (ABSOLUTE - NUNCA EMPURRA O CALENDÁRIO) */}
-            {isDrawMode && (
-              <div className="absolute top-2 left-2 right-2 z-30 p-2 bg-slate-900/95 backdrop-blur-md text-white rounded-xl shadow-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-2 animate-fadeIn">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded-lg">
-                    <Pencil className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-xs font-bold text-amber-200">Caneta Ativa</span>
-                  </div>
-
-                  {/* Seletor de Cores */}
-                  <div className="flex items-center gap-1 bg-slate-800/90 px-2 py-1 rounded-lg">
-                    {[
-                      { color: '#ef4444', label: 'Vermelho' },
-                      { color: '#eab308', label: 'Amarelo' },
-                      { color: '#3b82f6', label: 'Azul' },
-                      { color: '#10b981', label: 'Verde' },
-                      { color: '#8b5cf6', label: 'Roxo' },
-                      { color: '#1e293b', label: 'Grafite' },
-                    ].map((c) => (
-                      <button
-                        key={c.color}
-                        type="button"
-                        onClick={() => {
-                          setDrawColor(c.color);
-                          setIsEraser(false);
-                        }}
-                        style={{ backgroundColor: c.color }}
-                        className={`w-5 h-5 rounded-full border-2 transition ${
-                          !isEraser && drawColor === c.color
-                            ? 'border-white scale-110 shadow-xs'
-                            : 'border-transparent opacity-70 hover:opacity-100'
-                        }`}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Espessura */}
-                  <div className="flex items-center gap-1 bg-slate-800/90 px-1.5 py-1 rounded-lg text-[10px] font-bold">
-                    <button
-                      type="button"
-                      onClick={() => setDrawSize(2)}
-                      className={`px-1.5 py-0.5 rounded transition ${
-                        drawSize === 2 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Fina
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDrawSize(4)}
-                      className={`px-1.5 py-0.5 rounded transition ${
-                        drawSize === 4 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Média
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDrawSize(7)}
-                      className={`px-1.5 py-0.5 rounded transition ${
-                        drawSize === 7 ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      Grossa
-                    </button>
-                  </div>
-
-                  {/* Borracha */}
-                  <button
-                    type="button"
-                    onClick={() => setIsEraser(!isEraser)}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition ${
-                      isEraser
-                        ? 'bg-amber-500 text-slate-950 font-black'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
-                    }`}
-                    title="Borracha para apagar traços"
-                  >
-                    <Eraser className="w-3.5 h-3.5" />
-                    <span>Borracha</span>
-                  </button>
-
-                  {/* Limpar Tudo */}
-                  {hasDoodle && (
-                    <button
-                      type="button"
-                      onClick={handleClearCanvas}
-                      className="flex items-center gap-1 px-2 py-1 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition"
-                      title="Apagar todos os rabiscos deste mês"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Limpar</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Sair do Modo Caneta */}
-                <button
-                  type="button"
-                  onClick={() => setIsDrawMode(false)}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-lg shadow transition flex items-center gap-1 ml-auto"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Concluir</span>
-                </button>
-              </div>
-            )}
-
-            {/* Dica amigável de duplo clique com altura fixa */}
+            {/* Dica amigável com altura fixa */}
             <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 px-1 min-h-[20px]">
               <span className="flex items-center gap-1 text-slate-600">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Dê um <strong>duplo clique</strong> (ou duplo toque) em qualquer dia para adicionar atividades ou eventos.</span>
+                <span>Clique e segure (ou dê <strong>duplo clique</strong>) em qualquer dia para registrar o <strong>Diário de Bordo</strong> ou atividades.</span>
               </span>
               {hasDoodle && (
                 <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2">
@@ -816,15 +895,19 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                 return (
                   <div
                     key={`${day.dateStr}-${idx}`}
+                    onMouseDown={() => handleDayMouseDownOrTouchStart(day.dateStr)}
+                    onMouseUp={() => handleDayMouseUpOrTouchEnd(day.dateStr)}
+                    onMouseLeave={() => handleDayMouseUpOrTouchEnd(day.dateStr)}
+                    onTouchStart={() => handleDayMouseDownOrTouchStart(day.dateStr)}
+                    onTouchEnd={() => handleDayMouseUpOrTouchEnd(day.dateStr)}
+                    onDoubleClick={() => handleDayDoubleClick(day.dateStr)}
                     onClick={() => {
                       if (isDrawMode) return;
                       if (dayItems.length > 0) {
                         setSelectedDayEvents(day.dateStr === selectedDayEvents ? null : day.dateStr);
                       }
                     }}
-                    onDoubleClick={() => handleDayDoubleClick(day.dateStr)}
-                    onTouchEnd={() => handleDayTouchEnd(day.dateStr)}
-                    title="Clique para ver detalhes • Duplo clique para agendar atividade ou evento"
+                    title="Clique para ver detalhes • Segure ou dê duplo clique para Diário de Bordo ou Atividade"
                     className={`min-h-[82px] p-1.5 rounded-xl border transition-all duration-150 flex flex-col justify-between cursor-pointer select-none ${
                       !day.isCurrentMonth
                         ? 'bg-slate-50/50 border-slate-100 text-slate-300'
@@ -862,6 +945,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                       {dayItems.slice(0, 2).map((item) => {
                         let color = 'bg-slate-100 text-slate-700 border-slate-200';
                         if (item.type === 'document') color = 'bg-rose-50 text-rose-800 border-rose-200 font-bold';
+                        else if (item.type === 'daily_log') color = 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold';
                         else if (item.type === 'assessment') color = 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold';
                         else if (item.type === 'activity') color = 'bg-teal-50 text-teal-800 border-teal-200 font-bold';
                         else if (item.type === 'event') color = 'bg-amber-50 text-amber-900 border-amber-200 font-semibold';
@@ -945,6 +1029,11 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                       label: 'Prazo de Documento',
                       classes: 'bg-rose-100 text-rose-800 border-rose-200',
                     };
+                  } else if ((item.type as any) === 'daily_log') {
+                    badge = {
+                      label: 'Diário de Bordo',
+                      classes: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
+                    };
                   } else if (isAssessment) {
                     badge = {
                       label: 'Minha Avaliação',
@@ -1000,7 +1089,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                           </button>
                         )}
 
-                        {(isAssessment || isActivity || (item.type === 'event' && String(item.id).startsWith('custom-'))) && (
+                        {(isAssessment || isActivity || (item.type as any) === 'daily_log' || (item.type === 'event' && String(item.id).startsWith('custom-'))) && (
                           <button
                             type="button"
                             onClick={() => handleDeleteItem(item)}
@@ -1061,6 +1150,21 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                   Tipo de Agendamento *
                 </label>
                 <div className="grid grid-cols-3 gap-2">
+                  {/* 1. DIÁRIO DE BORDO */}
+                  <button
+                    type="button"
+                    onClick={() => setQuickAddType('daily_log')}
+                    className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
+                      quickAddType === 'daily_log'
+                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-300'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span>Diário de Bordo</span>
+                  </button>
+
+                  {/* 2. ATIVIDADE */}
                   <button
                     type="button"
                     onClick={() => setQuickAddType('activity')}
@@ -1074,6 +1178,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     <span>Atividade</span>
                   </button>
 
+                  {/* 3. AVALIAÇÃO */}
                   <button
                     type="button"
                     onClick={() => setQuickAddType('assessment')}
@@ -1086,62 +1191,110 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
                     <span>Avaliação</span>
                   </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setQuickAddType('event')}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
-                      quickAddType === 'event'
-                        ? 'bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-300'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                    <span>Evento / Nota</span>
-                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Título *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Trabalho de Ciências em Grupo"
-                  value={quickAddTitle}
-                  onChange={(e) => setQuickAddTitle(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                  autoFocus
-                />
-              </div>
+              {/* CAMPOS ESPECÍFICOS CONFORME O TIPO */}
+              {quickAddType === 'daily_log' ? (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Atividades Desempenhadas Hoje *
+                    </label>
+                    <textarea
+                      rows={2}
+                      required
+                      placeholder="Ex: Introdução ao conteúdo, leitura guiada do capítulo 4..."
+                      value={dailyActivitiesToday}
+                      onChange={(e) => setDailyActivitiesToday(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none resize-none font-medium text-slate-800"
+                      autoFocus
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Turma (Opcional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: 9º Ano A (ou deixe vazio para todas)"
-                  value={quickAddTurma}
-                  onChange={(e) => setQuickAddTurma(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Tarefa de Sala
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Resolução dos exercícios 1 a 6 da página 45"
+                      value={dailyClasswork}
+                      onChange={(e) => setDailyClasswork(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800"
+                    />
+                  </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1">
-                  Detalhes / Orientações (Opcional)
-                </label>
-                <textarea
-                  rows={2}
-                  placeholder="Ex: Trazer material para elaboração dos cartazes..."
-                  value={quickAddDetails}
-                  onChange={(e) => setQuickAddDetails(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                />
-              </div>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Tarefa de Casa
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Exercícios 7 e 8 da página 46 para amanhã"
+                      value={dailyHomework}
+                      onChange={(e) => setDailyHomework(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Turma (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 9º Ano A"
+                      value={quickAddTurma}
+                      onChange={(e) => setQuickAddTurma(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Título *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={quickAddType === 'activity' ? "Ex: Trabalho de Ciências em Grupo" : "Ex: Prova Bimestral de Matemática"}
+                      value={quickAddTitle}
+                      onChange={(e) => setQuickAddTitle(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                      autoFocus
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Turma (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 9º Ano A (ou deixe vazio para todas)"
+                      value={quickAddTurma}
+                      onChange={(e) => setQuickAddTurma(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-700 block mb-1">
+                      Detalhes / Orientações (Opcional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Ex: Trazer material para elaboração dos cartazes..."
+                      value={quickAddDetails}
+                      onChange={(e) => setQuickAddDetails(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1153,11 +1306,21 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={!quickAddTitle.trim()}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer"
+                  disabled={
+                    quickAddType === 'daily_log'
+                      ? !dailyActivitiesToday.trim() && !dailyClasswork.trim() && !dailyHomework.trim()
+                      : !quickAddTitle.trim()
+                  }
+                  className={`px-4 py-2 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                    quickAddType === 'daily_log'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-indigo-600 hover:bg-indigo-700'
+                  }`}
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Salvar no Calendário</span>
+                  <span>
+                    {quickAddType === 'daily_log' ? 'Salvar no Diário de Bordo' : 'Salvar no Calendário'}
+                  </span>
                 </button>
               </div>
             </form>
