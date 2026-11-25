@@ -28,6 +28,7 @@ import {
 import { TeacherSchedule } from '../../types/database.types';
 import { teacherCalendarService, DailyLogEntry } from '../../services/teacherCalendarService';
 import { curriculumByDiscipline, MatrixItem } from '../../data/curriculumData';
+import { VoiceDictationButton } from '../common/VoiceDictationButton';
 import {
   diaryAlarmService,
   DiaryAlarmConfig,
@@ -212,6 +213,21 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
   const [formTurma, setFormTurma] = useState('');
   const [formPeriod, setFormPeriod] = useState<number>(1);
   const [formSubject, setFormSubject] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Estado do Modal de Clonar / Reaproveitar Aula para outra turma
+  const [cloneSource, setCloneSource] = useState<{
+    date: string;
+    turma: string;
+    subject: string;
+    activitiesToday: string;
+    classwork: string;
+    homework: string;
+    nextLessonPlan: string;
+  } | null>(null);
+  const [cloneTargetDate, setCloneTargetDate] = useState<string>(todayStr);
+  const [cloneSelectedTurmas, setCloneSelectedTurmas] = useState<string[]>([]);
+  const [cloneFeedback, setCloneFeedback] = useState<string | null>(null);
 
   const buildDemoDailyLogs = (): DailyLogEntry[] => {
     const subject = teacherDiscipline || 'Matemática';
@@ -868,6 +884,61 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     }
   };
 
+  const getDraftKey = (date: string, turma: string, period?: number) =>
+    `diary_draft_${date}_${normalizeTurma(turma || 'manual')}_${period ?? 1}`;
+
+  // Salva rascunho automático no localStorage enquanto o professor digita (proteção offline)
+  useEffect(() => {
+    if (!editorState?.isOpen) return;
+    const key = getDraftKey(
+      editorState.date,
+      editorState.isManualTurma ? formTurma : editorState.turma,
+      editorState.isManualTurma ? formPeriod : editorState.period
+    );
+    const hasContent =
+      formActivities.trim() || formClasswork.trim() || formHomework.trim() || formNextLesson.trim();
+    try {
+      if (hasContent) {
+        localStorage.setItem(
+          key,
+          JSON.stringify({
+            activitiesToday: formActivities,
+            classwork: formClasswork,
+            homework: formHomework,
+            nextLessonPlan: formNextLesson,
+            updatedAt: Date.now(),
+          })
+        );
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [editorState, formTurma, formPeriod, formActivities, formClasswork, formHomework, formNextLesson]);
+
+  const discardCurrentDraft = () => {
+    if (!editorState) return;
+    const key = getDraftKey(
+      editorState.date,
+      editorState.isManualTurma ? formTurma : editorState.turma,
+      editorState.isManualTurma ? formPeriod : editorState.period
+    );
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+    const existing = editorState.existingLogId
+      ? dailyLogs.find((l) => l.id === editorState.existingLogId)
+      : undefined;
+    setFormActivities(existing?.activitiesToday || '');
+    setFormClasswork(existing?.classwork || '');
+    setFormHomework(existing?.homework || '');
+    setFormNextLesson(existing?.nextLessonPlan || '');
+    setDraftRestored(false);
+  };
+
   // Abrir editor para um slot (turma/tempo) específico do dia
   const openSlotEditor = (slot: DayClassSlot, targetDate = selectedDate) => {
     const existing = slot.log;
@@ -885,10 +956,36 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     setFormTurma(slot.turma);
     setFormPeriod(slot.period ?? 1);
     setFormSubject(slot.subject);
-    setFormActivities(existing?.activitiesToday || '');
-    setFormClasswork(existing?.classwork || '');
-    setFormHomework(existing?.homework || '');
-    setFormNextLesson(existing?.nextLessonPlan || '');
+
+    let restored = false;
+    try {
+      const rawDraft = localStorage.getItem(getDraftKey(targetDate, slot.turma, slot.period));
+      if (rawDraft) {
+        const parsed = JSON.parse(rawDraft);
+        const differsFromExisting =
+          (parsed.activitiesToday || '') !== (existing?.activitiesToday || '') ||
+          (parsed.classwork || '') !== (existing?.classwork || '') ||
+          (parsed.homework || '') !== (existing?.homework || '') ||
+          (parsed.nextLessonPlan || '') !== (existing?.nextLessonPlan || '');
+        if (differsFromExisting) {
+          setFormActivities(parsed.activitiesToday || '');
+          setFormClasswork(parsed.classwork || '');
+          setFormHomework(parsed.homework || '');
+          setFormNextLesson(parsed.nextLessonPlan || '');
+          restored = true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    if (!restored) {
+      setFormActivities(existing?.activitiesToday || '');
+      setFormClasswork(existing?.classwork || '');
+      setFormHomework(existing?.homework || '');
+      setFormNextLesson(existing?.nextLessonPlan || '');
+    }
+    setDraftRestored(restored);
   };
 
   // Abrir editor para adicionar turma/tempo avulso no dia selecionado
@@ -912,6 +1009,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     setFormClasswork('');
     setFormHomework('');
     setFormNextLesson('');
+    setDraftRestored(false);
   };
 
   const handleSaveEntry = async (e: React.FormEvent) => {
@@ -973,9 +1071,97 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
       newEntry,
     ];
 
+    try {
+      localStorage.removeItem(getDraftKey(editorState.date, finalTurma, finalPeriod));
+    } catch {
+      // ignore
+    }
+    setDraftRestored(false);
     setDailyLogs(updatedLogs);
     setEditorState(null);
     await teacherCalendarService.saveDailyLogs(updatedLogs);
+  };
+
+  const openCloneModalFromEditor = () => {
+    if (!editorState) return;
+    const currentTurma = (editorState.isManualTurma ? formTurma : editorState.turma).trim();
+    setCloneSource({
+      date: editorState.date,
+      turma: currentTurma,
+      subject: (editorState.isManualTurma ? formSubject : editorState.subject) || teacherDiscipline || 'Aula',
+      activitiesToday: formActivities.trim(),
+      classwork: formClasswork.trim(),
+      homework: formHomework.trim(),
+      nextLessonPlan: formNextLesson.trim(),
+    });
+    setCloneTargetDate(editorState.date);
+    setCloneSelectedTurmas([]);
+    setCloneFeedback(null);
+  };
+
+  const openCloneModalFromLog = (log: DailyLogEntry) => {
+    setCloneSource({
+      date: log.date,
+      turma: log.turma || '',
+      subject: log.subject || teacherDiscipline || 'Aula',
+      activitiesToday: log.activitiesToday || '',
+      classwork: log.classwork || '',
+      homework: log.homework || '',
+      nextLessonPlan: log.nextLessonPlan || '',
+    });
+    setCloneTargetDate(todayStr);
+    setCloneSelectedTurmas([]);
+    setCloneFeedback(null);
+  };
+
+  const handleConfirmClone = async () => {
+    if (!cloneSource || cloneSelectedTurmas.length === 0) return;
+
+    const targetSlots = getSlotsForDate(cloneTargetDate, 'all');
+    const nowIso = new Date().toISOString();
+    const newEntries: DailyLogEntry[] = cloneSelectedTurmas.map((turmaName, idx) => {
+      const matchedSlot = targetSlots.find((s) => normalizeTurma(s.turma) === normalizeTurma(turmaName));
+      const period = matchedSlot?.period ?? 1;
+      const timeSlot = matchedSlot?.timeSlot ?? DEFAULT_PERIOD_OPTIONS[0].timeSlot;
+      return {
+        id: `daily-${cloneTargetDate}-${Date.now()}-${idx}`,
+        date: cloneTargetDate,
+        turma: turmaName,
+        period,
+        timeSlot,
+        subject: matchedSlot?.subject || cloneSource.subject || teacherDiscipline || 'Aula',
+        activitiesToday: cloneSource.activitiesToday || undefined,
+        classwork: cloneSource.classwork || undefined,
+        homework: cloneSource.homework || undefined,
+        nextLessonPlan: cloneSource.nextLessonPlan || undefined,
+        updatedAt: nowIso,
+      };
+    });
+
+    const updatedLogs = [
+      ...dailyLogs.filter(
+        (existing) =>
+          !newEntries.some(
+            (ne) =>
+              existing.date === ne.date &&
+              normalizeTurma(existing.turma) === normalizeTurma(ne.turma) &&
+              existing.period === ne.period
+          )
+      ),
+      ...newEntries,
+    ];
+
+    setDailyLogs(updatedLogs);
+    await teacherCalendarService.saveDailyLogs(updatedLogs);
+    setCloneFeedback(
+      `Aula clonada com sucesso para ${cloneSelectedTurmas.length} ${
+        cloneSelectedTurmas.length === 1 ? 'turma' : 'turmas'
+      }!`
+    );
+    setTimeout(() => {
+      setCloneSource(null);
+      setCloneFeedback(null);
+    }, 1100);
   };
 
   const handleDeleteLog = async (log: DailyLogEntry) => {
@@ -1942,6 +2128,22 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
 
             {editorTab === 'form' ? (
               <form onSubmit={handleSaveEntry} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+                {/* Aviso de rascunho automático recuperado (proteção offline) */}
+                {draftRestored && (
+                  <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2 text-[11px] text-emerald-900">
+                    <span className="font-semibold">
+                      Rascunho não salvo recuperado automaticamente.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={discardCurrentDraft}
+                      className="text-rose-700 font-extrabold hover:underline shrink-0"
+                    >
+                      Descartar
+                    </button>
+                  </div>
+                )}
+
                 {/* Dica discreta da última aula (1 linha) */}
                 {editorPreviousLog && (
                   <div className="px-3 py-2 rounded-xl bg-amber-50/80 border border-amber-200/80 flex items-center justify-between gap-2 text-[11px]">
@@ -1974,22 +2176,29 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
 
                 {/* 1. O que foi dado / Conteúdo planejado */}
                 <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="flex items-center justify-between gap-2 mb-1.5 flex-wrap">
                     <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
                       <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>
                         {editorState.date > todayStr ? 'Planejamento da aula *' : 'O que foi dado nesta aula *'}
                       </span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={openMatrixPicker}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold transition flex items-center gap-1 shrink-0"
-                      title="Selecionar assunto da Matriz Curricular"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Puxar da Matriz</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <VoiceDictationButton
+                        onTranscript={(spoken) =>
+                          setFormActivities((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={openMatrixPicker}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-extrabold transition flex items-center gap-1 shrink-0"
+                        title="Selecionar assunto da Matriz Curricular"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Puxar da Matriz</span>
+                      </button>
+                    </div>
                   </div>
                   <textarea
                     rows={3}
@@ -2007,12 +2216,19 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
 
                 {/* 2. Tarefa de Sala */}
                 <div>
-                  <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 mb-1.5">
-                    <ClipboardList className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span>
-                      Tarefa de Sala <span className="text-xs text-slate-400 font-medium">(opcional)</span>
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <ClipboardList className="w-4 h-4 text-teal-600 shrink-0" />
+                      <span>
+                        Tarefa de Sala <span className="text-xs text-slate-400 font-medium">(opcional)</span>
+                      </span>
+                    </label>
+                    <VoiceDictationButton
+                      onTranscript={(spoken) =>
+                        setFormClasswork((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                      }
+                    />
+                  </div>
                   <input
                     type="text"
                     placeholder="Ex: Exercícios 1 a 5 da página 35"
@@ -2024,12 +2240,19 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
 
                 {/* 3. Tarefa de Casa */}
                 <div>
-                  <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5 mb-1.5">
-                    <Home className="w-4 h-4 text-sky-600 shrink-0" />
-                    <span>
-                      Tarefa de Casa <span className="text-xs text-slate-400 font-medium">(opcional)</span>
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                      <Home className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span>
+                        Tarefa de Casa <span className="text-xs text-slate-400 font-medium">(opcional)</span>
+                      </span>
+                    </label>
+                    <VoiceDictationButton
+                      onTranscript={(spoken) =>
+                        setFormHomework((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                      }
+                    />
+                  </div>
                   <input
                     type="text"
                     placeholder="Ex: Questões 6 e 7 para a próxima aula"
@@ -2041,12 +2264,19 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
 
                 {/* 4. Planejamento para a Próxima Aula */}
                 <div>
-                  <label className="text-sm font-extrabold text-indigo-900 flex items-center gap-1.5 mb-1.5">
-                    <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <span>
-                      Para a próxima aula <span className="text-xs text-indigo-400 font-medium">(opcional)</span>
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="text-sm font-extrabold text-indigo-900 flex items-center gap-1.5">
+                      <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>
+                        Para a próxima aula <span className="text-xs text-indigo-400 font-medium">(opcional)</span>
+                      </span>
+                    </label>
+                    <VoiceDictationButton
+                      onTranscript={(spoken) =>
+                        setFormNextLesson((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                      }
+                    />
+                  </div>
                   <textarea
                     rows={2}
                     placeholder="Ex: Corrigir a tarefa de casa e aplicar atividade avaliativa..."
@@ -2056,25 +2286,43 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setEditorState(null)}
-                    className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                    disabled={
+                      !formActivities.trim() &&
+                      !formClasswork.trim() &&
+                      !formHomework.trim() &&
+                      !formNextLesson.trim()
+                    }
+                    onClick={openCloneModalFromEditor}
+                    className="px-3 py-2 text-xs font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 rounded-xl transition flex items-center gap-1.5"
+                    title="Reaproveitar esta aula para outra(s) turma(s)"
                   >
-                    Voltar
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Clonar p/ outra turma</span>
                   </button>
-                  <button
-                    type="submit"
-                    className={`px-4 py-2 text-white text-xs font-extrabold rounded-xl shadow-md transition flex items-center gap-1.5 ${
-                      editorState.date > todayStr
-                        ? 'bg-indigo-600 hover:bg-indigo-700'
-                        : 'bg-emerald-600 hover:bg-emerald-700'
-                    }`}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>{editorState.date > todayStr ? 'Salvar Planejamento' : 'Salvar'}</span>
-                  </button>
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => setEditorState(null)}
+                      className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                    >
+                      Voltar
+                    </button>
+                    <button
+                      type="submit"
+                      className={`px-4 py-2 text-white text-xs font-extrabold rounded-xl shadow-md transition flex items-center gap-1.5 ${
+                        editorState.date > todayStr
+                          ? 'bg-indigo-600 hover:bg-indigo-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{editorState.date > todayStr ? 'Salvar Planejamento' : 'Salvar'}</span>
+                    </button>
+                  </div>
                 </div>
               </form>
             ) : (
@@ -2094,11 +2342,22 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                         <span className="text-xs font-extrabold text-slate-900">
                           {formatDateBR(prev.date)} ({WEEKDAY_NAMES[parseLocalDate(prev.date).getDay()].split('-')[0]})
                         </span>
-                        {prev.period && (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                            {formatPeriodLabel(prev.period, hasMultipleShifts)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {prev.period && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                              {formatPeriodLabel(prev.period, hasMultipleShifts)}
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => openCloneModalFromLog(prev)}
+                            className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-extrabold flex items-center gap-1 transition"
+                            title="Clonar esta aula para outra turma"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Clonar</span>
+                          </button>
+                        </div>
                       </div>
                       {prev.activitiesToday && (
                         <p className="text-xs text-slate-800 whitespace-pre-line leading-relaxed font-medium">
@@ -2545,6 +2804,139 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                   <span>Adicionar ({selectedMatrixTopics.length})</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: CLONAR / REAPROVEITAR AULA PARA OUTRA TURMA */}
+      {cloneSource && (
+        <div
+          style={{ zIndex: 100001 }}
+          className="fixed inset-0 z-[100001] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[88vh] flex flex-col overflow-hidden border border-slate-200 animate-scaleIn">
+            <div className="px-5 py-4 bg-gradient-to-r from-indigo-600 to-violet-700 text-white flex items-center justify-between shrink-0">
+              <div className="min-w-0">
+                <h4 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                  <Copy className="w-4 h-4 shrink-0" />
+                  <span>Clonar Aula para Outra Turma</span>
+                </h4>
+                <p className="text-[11px] text-indigo-100 mt-0.5 truncate">
+                  Origem: {cloneSource.turma || 'Aula atual'} • {formatDateBR(cloneSource.date)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCloneSource(null)}
+                className="p-1.5 hover:bg-white/20 rounded-lg text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3.5 overflow-y-auto flex-1">
+              {cloneSource.activitiesToday && (
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    Conteúdo que será copiado
+                  </p>
+                  <p className="line-clamp-3 whitespace-pre-line font-medium">
+                    {cloneSource.activitiesToday}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                  Data de destino
+                </label>
+                <input
+                  type="date"
+                  value={cloneTargetDate}
+                  onChange={(e) => setCloneTargetDate(e.target.value)}
+                  className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-extrabold text-slate-800">
+                    Escolha a(s) turma(s) de destino
+                  </label>
+                  <span className="text-[11px] font-bold text-indigo-600">
+                    {cloneSelectedTurmas.length} selecionada(s)
+                  </span>
+                </div>
+
+                {availableTurmas.length === 0 ? (
+                  <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    Nenhuma outra turma encontrada no seu horário.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {availableTurmas.map((turmaName) => {
+                      const isSelected = cloneSelectedTurmas.includes(turmaName);
+                      const isSameAsSource =
+                        normalizeTurma(turmaName) === normalizeTurma(cloneSource.turma) &&
+                        cloneTargetDate === cloneSource.date;
+                      return (
+                        <label
+                          key={turmaName}
+                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition ${
+                            isSameAsSource
+                              ? 'opacity-45 bg-slate-100 border-slate-200 cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-indigo-50 border-indigo-400 text-indigo-900'
+                              : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-700'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            disabled={isSameAsSource}
+                            checked={isSelected}
+                            onChange={() =>
+                              setCloneSelectedTurmas((prev) =>
+                                prev.includes(turmaName)
+                                  ? prev.filter((t) => t !== turmaName)
+                                  : [...prev, turmaName]
+                              )
+                            }
+                            className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                          />
+                          <span className="truncate">{turmaName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {cloneFeedback && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{cloneFeedback}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setCloneSource(null)}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-200/70 rounded-xl transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={cloneSelectedTurmas.length === 0 || Boolean(cloneFeedback)}
+                onClick={handleConfirmClone}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-extrabold rounded-xl shadow-sm transition flex items-center gap-1.5"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Clonar ({cloneSelectedTurmas.length})</span>
+              </button>
             </div>
           </div>
         </div>

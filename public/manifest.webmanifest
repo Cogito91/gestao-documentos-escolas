@@ -1,0 +1,20 @@
+{
+  "name": "Gestão Escolar & Diário de Bordo",
+  "short_name": "Diário Escolar",
+  "description": "Sistema de Gestão Escolar, Controle Pedagógico e Diário de Bordo com suporte offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import { SchoolDocument } from '../../types/database.types';
 import { documentService } from '../../services/documentService';
 import { useAuth } from '../../contexts/AuthContext';
 import { encodeSpecialDocumentDescription } from '../../lib/utils';
+import { VoiceDictationButton } from '../common/VoiceDictationButton';
 
 interface OccurrenceModalProps {
   isOpen: boolean;
@@ -325,9 +326,16 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
 
             {occurrenceReason === 'Outros' ? (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Motivo da Ocorrência *
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600">
+                    Motivo da Ocorrência *
+                  </label>
+                  <VoiceDictationButton
+                    onTranscript={(spoken) =>
+                      setCustomOccurrence((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                    }
+                  />
+                </div>
                 <textarea
                   rows={2}
                   required
@@ -339,9 +347,16 @@ export const OccurrenceModal: React.FC<OccurrenceModalProps> = ({
               </div>
             ) : (
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  Detalhes adicionais (Opcional)
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="block text-[11px] font-semibold text-slate-600">
+                    Detalhes adicionais (Opcional)
+                  </label>
+                  <VoiceDictationButton
+                    onTranscript={(spoken) =>
+                      setDescription((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                    }
+                  />
+                </div>
                 <textarea
                   rows={2}
                   placeholder="Adicione detalhes se necessário (ex: assunto conversado, contexto)..."

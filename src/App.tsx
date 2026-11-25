@@ -28,6 +28,7 @@ import { notificationService } from './services/notificationService';
 import { messageService } from './services/messageService';
 import { pedagogicalService } from './services/pedagogicalService';
 import { CurriculumViewModal } from './components/curriculum/CurriculumViewModal';
+import { PwaStatusBar } from './components/common/PwaStatusBar';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const MainApp: React.FC = () => {
@@ -500,6 +501,7 @@ const MainApp: React.FC = () => {
         </div>
       </footer>
 
+      <PwaStatusBar />
       </div>
     </div>
   );
