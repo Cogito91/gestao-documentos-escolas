@@ -229,6 +229,11 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
   const [cloneSelectedTurmas, setCloneSelectedTurmas] = useState<string[]>([]);
   const [cloneFeedback, setCloneFeedback] = useState<string | null>(null);
 
+  // Estado do Modal de Clonar / Puxar Aula DE outra turma para a turma atual
+  const [isImportFromTurmaOpen, setIsImportFromTurmaOpen] = useState(false);
+  const [importTurmaFilter, setImportTurmaFilter] = useState<string>('all');
+  const [importSearch, setImportSearch] = useState('');
+
   const buildDemoDailyLogs = (): DailyLogEntry[] => {
     const subject = teacherDiscipline || 'Matemática';
     const nowIso = new Date().toISOString();
@@ -2287,21 +2292,36 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
-                  <button
-                    type="button"
-                    disabled={
-                      !formActivities.trim() &&
-                      !formClasswork.trim() &&
-                      !formHomework.trim() &&
-                      !formNextLesson.trim()
-                    }
-                    onClick={openCloneModalFromEditor}
-                    className="px-3 py-2 text-xs font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 rounded-xl transition flex items-center gap-1.5"
-                    title="Reaproveitar esta aula para outra(s) turma(s)"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Clonar p/ outra turma</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImportTurmaFilter('all');
+                        setImportSearch('');
+                        setIsImportFromTurmaOpen(true);
+                      }}
+                      className="px-2.5 py-2 text-xs font-extrabold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl transition flex items-center gap-1.5"
+                      title="Puxar aula já registrada em outra turma"
+                    >
+                      <History className="w-3.5 h-3.5" />
+                      <span>Clonar de outra turma</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        !formActivities.trim() &&
+                        !formClasswork.trim() &&
+                        !formHomework.trim() &&
+                        !formNextLesson.trim()
+                      }
+                      onClick={openCloneModalFromEditor}
+                      className="px-2.5 py-2 text-xs font-extrabold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-40 border border-indigo-200 rounded-xl transition flex items-center gap-1.5"
+                      title="Enviar esta aula para outra(s) turma(s)"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Clonar p/ outra turma</span>
+                    </button>
+                  </div>
 
                   <div className="flex items-center gap-2 ml-auto">
                     <button
@@ -2937,6 +2957,163 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                 <Copy className="w-3.5 h-3.5" />
                 <span>Clonar ({cloneSelectedTurmas.length})</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: CLONAR / PUXAR AULA DE OUTRA TURMA PARA A TURMA ATUAL */}
+      {isImportFromTurmaOpen && editorState && (
+        <div
+          style={{ zIndex: 100001 }}
+          className="fixed inset-0 z-[100001] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+        >
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[88vh] flex flex-col overflow-hidden border border-slate-200 animate-scaleIn">
+            <div className="px-5 py-4 bg-gradient-to-r from-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0">
+              <div className="min-w-0">
+                <h4 className="font-extrabold text-sm sm:text-base flex items-center gap-2">
+                  <History className="w-4 h-4 shrink-0" />
+                  <span>Clonar de Outra Turma</span>
+                </h4>
+                <p className="text-[11px] text-teal-100 mt-0.5 truncate">
+                  Escolha uma aula já lançada para preencher {(editorState.isManualTurma ? formTurma : editorState.turma) || 'esta turma'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportFromTurmaOpen(false)}
+                className="p-1.5 hover:bg-white/20 rounded-lg text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3.5 bg-slate-50 border-b border-slate-200 space-y-2 shrink-0">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    placeholder="Buscar assunto ou tarefa..."
+                    value={importSearch}
+                    onChange={(e) => setImportSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 outline-none"
+                  />
+                </div>
+                <select
+                  value={importTurmaFilter}
+                  onChange={(e) => setImportTurmaFilter(e.target.value)}
+                  className="px-3 py-2 text-xs font-bold bg-white border border-slate-300 rounded-xl outline-none"
+                >
+                  <option value="all">Todas as outras turmas</option>
+                  {availableTurmas
+                    .filter(
+                      (t) =>
+                        normalizeTurma(t) !==
+                        normalizeTurma((editorState.isManualTurma ? formTurma : editorState.turma) || '')
+                    )
+                    .map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="p-3.5 space-y-2.5 overflow-y-auto flex-1">
+              {(() => {
+                const currentTurmaNorm = normalizeTurma(
+                  (editorState.isManualTurma ? formTurma : editorState.turma) || ''
+                );
+                const q = importSearch.trim().toLowerCase();
+                const candidates = dailyLogs
+                  .filter((l) => {
+                    if (normalizeTurma(l.turma) === currentTurmaNorm) return false;
+                    if (
+                      importTurmaFilter !== 'all' &&
+                      normalizeTurma(l.turma) !== normalizeTurma(importTurmaFilter)
+                    ) {
+                      return false;
+                    }
+                    if (!l.activitiesToday && !l.classwork && !l.homework && !l.nextLessonPlan) {
+                      return false;
+                    }
+                    if (!q) return true;
+                    return (
+                      (l.turma || '').toLowerCase().includes(q) ||
+                      (l.activitiesToday || '').toLowerCase().includes(q) ||
+                      (l.classwork || '').toLowerCase().includes(q) ||
+                      (l.homework || '').toLowerCase().includes(q)
+                    );
+                  })
+                  .sort(
+                    (a, b) =>
+                      (b.date || '').localeCompare(a.date || '') || (b.period ?? 0) - (a.period ?? 0)
+                  )
+                  .slice(0, 40);
+
+                if (candidates.length === 0) {
+                  return (
+                    <div className="p-8 text-center text-xs text-slate-400">
+                      Nenhuma aula encontrada em outras turmas para esse filtro.
+                    </div>
+                  );
+                }
+
+                return candidates.map((log) => (
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => {
+                      const hasExisting =
+                        formActivities.trim() ||
+                        formClasswork.trim() ||
+                        formHomework.trim() ||
+                        formNextLesson.trim();
+                      if (
+                        hasExisting &&
+                        !confirm(
+                          `Substituir o texto atual pela aula de ${log.turma} (${formatDateBR(log.date)})?`
+                        )
+                      ) {
+                        return;
+                      }
+                      setFormActivities(log.activitiesToday || '');
+                      setFormClasswork(log.classwork || '');
+                      setFormHomework(log.homework || '');
+                      setFormNextLesson(log.nextLessonPlan || '');
+                      setIsImportFromTurmaOpen(false);
+                    }}
+                    className="w-full text-left p-3 rounded-2xl border border-slate-200 hover:border-teal-400 hover:bg-teal-50/40 transition space-y-1.5 group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-extrabold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-full">
+                        {log.turma}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {formatDateBR(log.date)}
+                        {log.period ? ` • ${formatPeriodLabel(log.period, hasMultipleShifts)}` : ''}
+                      </span>
+                    </div>
+                    {log.activitiesToday && (
+                      <p className="text-xs text-slate-800 font-semibold line-clamp-2 whitespace-pre-line">
+                        {log.activitiesToday}
+                      </p>
+                    )}
+                    {(log.classwork || log.homework) && (
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {log.classwork ? `Sala: ${log.classwork}` : ''}
+                        {log.classwork && log.homework ? ' • ' : ''}
+                        {log.homework ? `Casa: ${log.homework}` : ''}
+                      </p>
+                    )}
+                    <p className="text-[10px] font-extrabold text-teal-700 opacity-80 group-hover:opacity-100">
+                      Toque para usar esta aula →
+                    </p>
+                  </button>
+                ));
+              })()}
             </div>
           </div>
         </div>
