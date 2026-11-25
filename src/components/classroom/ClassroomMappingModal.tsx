@@ -15,14 +15,10 @@ import {
   Minus,
   ChevronUp,
   ChevronDown,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
   ArrowRight,
   DoorOpen,
   Monitor,
   Briefcase,
-  Compass,
   GripHorizontal,
   RotateCcw,
   Sliders,
@@ -688,15 +684,23 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
       return;
     }
 
-    // Para Quadro e Mesa: movimento livre
-    const xClamped = Math.max(5, Math.min(95, rawX));
+    // Para Quadro e Mesa: movimento livre com detecção de paredes laterais para rotação de 90°
+    const xClamped = Math.max(4, Math.min(96, rawX));
     const yClamped = Math.max(3, Math.min(96, rawY));
+
+    let wall: 'left' | 'right' | 'top' = 'top';
+    if (xClamped <= 18) {
+      wall = 'left';
+    } else if (xClamped >= 82) {
+      wall = 'right';
+    }
 
     setPositions((prev) => ({
       ...prev,
       [currentItem]: {
         x: Math.round(xClamped),
         y: Math.round(yClamped),
+        wall,
       },
     }));
   };
@@ -731,8 +735,8 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const handleResetPositions = () => {
     if (!canEditLayout) return;
     const defaultPos = {
-      board: { x: 50, y: 7 },
-      teacherDesk: { x: 84, y: 11 },
+      board: { x: 50, y: 7, wall: 'top' as const },
+      teacherDesk: { x: 84, y: 11, wall: 'top' as const },
       door: { x: 8, y: 0, wall: 'top' as const },
     };
     const defaultSizes = {
@@ -786,23 +790,10 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   const occupiedSeatsCount = occupiedSeatsKeys.length;
   const totalSeats = currentLayout.rows * currentLayout.cols;
 
-  // Render do ícone de direção da carteira
-  const renderFacingIcon = () => {
-    switch (deskFacing) {
-      case 'down':
-        return <ArrowDown className="w-2.5 h-2.5 text-indigo-500 inline" />;
-      case 'left':
-        return <ArrowLeft className="w-2.5 h-2.5 text-indigo-500 inline" />;
-      case 'right':
-        return <ArrowRight className="w-2.5 h-2.5 text-indigo-500 inline" />;
-      case 'up':
-      default:
-        return <ArrowUp className="w-2.5 h-2.5 text-indigo-500 inline" />;
-    }
-  };
-
   const doorWall = positions.door.wall || 'top';
   const isVerticalDoor = doorWall === 'left' || doorWall === 'right';
+  const boardWall = positions.board.wall || (positions.board.x <= 18 ? 'left' : positions.board.x >= 82 ? 'right' : 'top');
+  const teacherDeskWall = positions.teacherDesk.wall || (positions.teacherDesk.x <= 18 ? 'left' : positions.teacherDesk.x >= 82 ? 'right' : 'top');
 
   if (!isOpen) return null;
 
@@ -989,23 +980,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 </button>
               </div>
 
-              {/* DROPDOWN DE DIREÇÃO DAS CARTEIRAS */}
-              {canEditLayout && (
-                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-lg border border-indigo-200">
-                  <Compass className="w-3.5 h-3.5 text-indigo-700" />
-                  <span className="font-bold text-slate-700 text-[11px]">Direção:</span>
-                  <select
-                    value={deskFacing}
-                    onChange={(e) => handleUpdateDeskFacing(e.target.value as DeskFacing)}
-                    className="px-2 py-0.5 text-xs font-black border border-slate-300 rounded-md bg-white text-indigo-900 cursor-pointer focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option value="up">Cima (↑)</option>
-                    <option value="down">Baixo (↓)</option>
-                    <option value="left">Esquerda (←)</option>
-                    <option value="right">Direita (→)</option>
-                  </select>
-                </div>
-              )}
+
 
               {/* Botão para abrir controles de tamanho dos objetos */}
               {canEditLayout && (
@@ -1189,7 +1164,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               {canEditLayout && <GripHorizontal className="w-3 h-3 opacity-70 ml-0.5 shrink-0" />}
             </div>
 
-            {/* QUADRO / LOUSA ARRASTÁVEL */}
+            {/* QUADRO / LOUSA ARRASTÁVEL COM ROTAÇÃO DE 90° NAS PAREDES LATERAIS */}
             <div
               onMouseDown={(e) => startDrag('board', e)}
               onTouchStart={(e) => startDrag('board', e)}
@@ -1197,7 +1172,13 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 position: 'absolute',
                 left: `${positions.board.x}%`,
                 top: `${positions.board.y}%`,
-                transform: 'translate(-50%, -50%)',
+                transform:
+                  boardWall === 'left'
+                    ? 'translate(-50%, -50%) rotate(-90deg)'
+                    : boardWall === 'right'
+                    ? 'translate(-50%, -50%) rotate(90deg)'
+                    : 'translate(-50%, -50%)',
+                transformOrigin: 'center center',
                 width: `${sizes.boardWidth}%`,
                 minWidth: '160px',
                 maxWidth: '92%',
@@ -1206,7 +1187,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               className={`z-20 px-3 py-1.5 rounded-xl bg-slate-800 text-white font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-md border-2 border-slate-600 select-none ${
                 canEditLayout ? 'cursor-move active:scale-95 hover:border-sky-400' : 'cursor-default'
               }`}
-              title="Quadro / Lousa (Arraste para mover na sala)"
+              title="Quadro / Lousa (Arraste para mover na sala; gira automaticamente nas paredes laterais)"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
               <Monitor className="w-3.5 h-3.5 text-sky-400 shrink-0" />
@@ -1214,7 +1195,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
               {canEditLayout && <GripHorizontal className="w-3.5 h-3.5 opacity-60 ml-1 shrink-0" />}
             </div>
 
-            {/* MESA DO PROFESSOR ARRASTÁVEL */}
+            {/* MESA DO PROFESSOR ARRASTÁVEL COM ROTAÇÃO DE 90° NAS PAREDES LATERAIS */}
             <div
               onMouseDown={(e) => startDrag('teacherDesk', e)}
               onTouchStart={(e) => startDrag('teacherDesk', e)}
@@ -1222,13 +1203,19 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 position: 'absolute',
                 left: `${positions.teacherDesk.x}%`,
                 top: `${positions.teacherDesk.y}%`,
-                transform: `translate(-50%, -50%) scale(${sizes.teacherDeskScale})`,
+                transform:
+                  teacherDeskWall === 'left'
+                    ? `translate(-50%, -50%) rotate(-90deg) scale(${sizes.teacherDeskScale})`
+                    : teacherDeskWall === 'right'
+                    ? `translate(-50%, -50%) rotate(90deg) scale(${sizes.teacherDeskScale})`
+                    : `translate(-50%, -50%) scale(${sizes.teacherDeskScale})`,
+                transformOrigin: 'center center',
                 touchAction: 'none',
               }}
               className={`z-20 px-2.5 py-1.5 rounded-xl bg-amber-600 text-white font-black text-[11px] uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-amber-400 select-none ${
                 canEditLayout ? 'cursor-move active:scale-95 hover:border-amber-300' : 'cursor-default'
               }`}
-              title="Mesa do Professor (Arraste para mover na sala)"
+              title="Mesa do Professor (Arraste para mover na sala; gira automaticamente nas paredes laterais)"
             >
               <Briefcase className="w-3.5 h-3.5 text-white" />
               <span>MESA PROFESSOR</span>
@@ -1381,10 +1368,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                                       <span>{studentObsCount}</span>
                                     </span>
                                   )}
-
-                                  <span title={`Carteiras viradas para: ${deskFacing}`}>
-                                    {renderFacingIcon()}
-                                  </span>
                                 </div>
                               </div>
 
@@ -1635,24 +1618,6 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <Compass className="w-3.5 h-3.5 text-indigo-600" />
-              <span>
-                Orientação: Carteiras viradas para{' '}
-                <strong className="text-indigo-900">
-                  {deskFacing === 'up'
-                    ? 'cima (frente)'
-                    : deskFacing === 'down'
-                    ? 'baixo (fundo)'
-                    : deskFacing === 'left'
-                    ? 'a esquerda'
-                    : 'a direita'}
-                </strong>
-              </span>
-            </div>
-
-            <span className="text-slate-300 hidden sm:inline">•</span>
-
             <div className="flex items-center gap-1.5 text-slate-600">
               <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
               <span>
