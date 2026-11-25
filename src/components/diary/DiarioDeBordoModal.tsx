@@ -2874,7 +2874,10 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                 <input
                   type="date"
                   value={cloneTargetDate}
-                  onChange={(e) => setCloneTargetDate(e.target.value)}
+                  onChange={(e) => {
+                    setCloneTargetDate(e.target.value);
+                    setCloneSelectedTurmas([]);
+                  }}
                   className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
@@ -2882,54 +2885,75 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-extrabold text-slate-800">
-                    Escolha a(s) turma(s) de destino
+                    Turmas do dia {formatDateBR(cloneTargetDate)}
                   </label>
                   <span className="text-[11px] font-bold text-indigo-600">
                     {cloneSelectedTurmas.length} selecionada(s)
                   </span>
                 </div>
 
-                {availableTurmas.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    Nenhuma outra turma encontrada no seu horário.
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-                    {availableTurmas.map((turmaName) => {
-                      const isSelected = cloneSelectedTurmas.includes(turmaName);
-                      const isSameAsSource =
-                        normalizeTurma(turmaName) === normalizeTurma(cloneSource.turma) &&
-                        cloneTargetDate === cloneSource.date;
-                      return (
-                        <label
-                          key={turmaName}
-                          className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition ${
-                            isSameAsSource
-                              ? 'opacity-45 bg-slate-100 border-slate-200 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-indigo-50 border-indigo-400 text-indigo-900'
-                              : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-700'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            disabled={isSameAsSource}
-                            checked={isSelected}
-                            onChange={() =>
-                              setCloneSelectedTurmas((prev) =>
-                                prev.includes(turmaName)
-                                  ? prev.filter((t) => t !== turmaName)
-                                  : [...prev, turmaName]
-                              )
-                            }
-                            className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
-                          />
-                          <span className="truncate">{turmaName}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                )}
+                {(() => {
+                  const slotsOnTargetDate = getSlotsForDate(cloneTargetDate, 'all');
+                  const uniqueDayTurmas = Array.from(
+                    new Map(
+                      slotsOnTargetDate.map((s) => [normalizeTurma(s.turma), s])
+                    ).values()
+                  );
+
+                  if (uniqueDayTurmas.length === 0) {
+                    return (
+                      <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Nenhuma turma agendada para {formatDateBR(cloneTargetDate)}.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {uniqueDayTurmas.map((slot) => {
+                        const turmaName = slot.turma;
+                        const isSelected = cloneSelectedTurmas.includes(turmaName);
+                        const isSameAsSource =
+                          normalizeTurma(turmaName) === normalizeTurma(cloneSource.turma) &&
+                          cloneTargetDate === cloneSource.date;
+                        return (
+                          <label
+                            key={turmaName}
+                            className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition ${
+                              isSameAsSource
+                                ? 'opacity-45 bg-slate-100 border-slate-200 cursor-not-allowed'
+                                : isSelected
+                                ? 'bg-indigo-50 border-indigo-400 text-indigo-900'
+                                : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-700'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={isSameAsSource}
+                              checked={isSelected}
+                              onChange={() =>
+                                setCloneSelectedTurmas((prev) =>
+                                  prev.includes(turmaName)
+                                    ? prev.filter((t) => t !== turmaName)
+                                    : [...prev, turmaName]
+                                )
+                              }
+                              className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <span className="truncate block">{turmaName}</span>
+                              {slot.period && (
+                                <span className="text-[10px] font-medium text-slate-500 block">
+                                  {formatPeriodLabel(slot.period, hasMultipleShifts)}
+                                </span>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
 
               {cloneFeedback && (
