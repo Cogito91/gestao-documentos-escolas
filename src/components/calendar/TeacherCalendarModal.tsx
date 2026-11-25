@@ -653,30 +653,12 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
         {/* Grade do Calendário + Painel Lateral de Detalhes */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5">
           
-          {/* Grade Mensal com suporte a Rabisco/Caneta e Duplo Clique */}
-          <div
-            ref={gridContainerRef}
-            className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs flex flex-col relative select-none"
-          >
-            {/* CANVAS TRANSPARENTE PARA DESENHO / CANETINHA SOBRE O CALENDÁRIO */}
-            <canvas
-              ref={canvasRef}
-              className={`absolute inset-0 z-10 rounded-2xl ${
-                isDrawMode ? 'cursor-crosshair pointer-events-auto touch-none' : 'pointer-events-none'
-              }`}
-              style={{ touchAction: isDrawMode ? 'none' : 'auto' }}
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
-              onMouseUp={stopDrawing}
-              onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
-            />
-
-            {/* BARRA DE FERRAMENTAS DO MODO CANETA (QUANDO ATIVO) */}
+          {/* Coluna da Grade Mensal com suporte a Rabisco/Caneta e Duplo Clique */}
+          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-3 shadow-2xs flex flex-col relative select-none">
+            
+            {/* BARRA FLUTUANTE DE FERRAMENTAS DO MODO CANETA (ABSOLUTE - NUNCA EMPURRA O CALENDÁRIO) */}
             {isDrawMode && (
-              <div className="mb-2 p-2 bg-slate-900 text-white rounded-xl shadow-lg border border-slate-700 flex flex-wrap items-center justify-between gap-2 animate-fadeIn z-20">
+              <div className="absolute top-2 left-2 right-2 z-30 p-2 bg-slate-900/95 backdrop-blur-md text-white rounded-xl shadow-2xl border border-slate-700 flex flex-wrap items-center justify-between gap-2 animate-fadeIn">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded-lg">
                     <Pencil className="w-3.5 h-3.5 text-amber-400" />
@@ -783,34 +765,50 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
               </div>
             )}
 
-            {/* Dica amigável de duplo clique */}
-            {!isDrawMode && (
-              <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 px-1">
-                <span className="flex items-center gap-1 text-slate-600">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>Dê um <strong>duplo clique</strong> (ou duplo toque) em qualquer dia para adicionar atividades ou eventos.</span>
+            {/* Dica amigável de duplo clique com altura fixa */}
+            <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 px-1 min-h-[20px]">
+              <span className="flex items-center gap-1 text-slate-600">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>Dê um <strong>duplo clique</strong> (ou duplo toque) em qualquer dia para adicionar atividades ou eventos.</span>
+              </span>
+              {hasDoodle && (
+                <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2">
+                  Contém anotações a caneta
                 </span>
-                {hasDoodle && (
-                  <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2">
-                    Contém anotações a caneta
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Dias da Semana */}
-            <div className="grid grid-cols-7 gap-1 text-center font-extrabold text-[11px] text-slate-400 uppercase tracking-wider mb-2">
-              <span>Dom</span>
-              <span>Seg</span>
-              <span>Ter</span>
-              <span>Qua</span>
-              <span>Qui</span>
-              <span>Sex</span>
-              <span>Sáb</span>
+              )}
             </div>
 
-            {/* Células dos Dias */}
-            <div className="grid grid-cols-7 gap-1 flex-1">
+            {/* ÁREA DA GRADE COM O CANVAS ACOPLADO DIRETAMENTE (SEM DESLOCAMENTO) */}
+            <div ref={gridContainerRef} className="relative flex-1 flex flex-col">
+              {/* CANVAS TRANSPARENTE FIXADO EXATAMENTE NA ÁREA DAS CÉLULAS DO CALENDÁRIO */}
+              <canvas
+                ref={canvasRef}
+                className={`absolute inset-0 z-10 rounded-xl ${
+                  isDrawMode ? 'cursor-crosshair pointer-events-auto touch-none' : 'pointer-events-none'
+                }`}
+                style={{ touchAction: isDrawMode ? 'none' : 'auto' }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+
+              {/* Dias da Semana */}
+              <div className="grid grid-cols-7 gap-1 text-center font-extrabold text-[11px] text-slate-400 uppercase tracking-wider mb-2">
+                <span>Dom</span>
+                <span>Seg</span>
+                <span>Ter</span>
+                <span>Qua</span>
+                <span>Qui</span>
+                <span>Sex</span>
+                <span>Sáb</span>
+              </div>
+
+              {/* Células dos Dias */}
+              <div className="grid grid-cols-7 gap-1 flex-1">
               {calendarGrid.map((day, idx) => {
                 const dayItems = itemsByDate[day.dateStr] || [];
                 const isSelected = selectedDayEvents === day.dateStr;
@@ -888,6 +886,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
               })}
             </div>
           </div>
+        </div>
 
           {/* Painel Lateral com Lista Cronológica de Prazos e Eventos */}
           <div className="lg:col-span-4 flex flex-col space-y-4">
