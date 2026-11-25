@@ -134,6 +134,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
   // Container de drag and drop
   const roomAreaRef = useRef<HTMLDivElement>(null);
   const draggingItemRef = useRef<'board' | 'teacherDesk' | 'door' | null>(null);
+  const debounceSaveSizesRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Detecção de dispositivo móvel / touch
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -616,7 +617,14 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
     if (!canEditLayout) return;
     const updated = { ...sizes, [key]: val };
     setSizes(updated);
-    saveSizesToConfig(updated);
+
+    // Debounce da persistência para resposta instantânea a 60fps sem delay
+    if (debounceSaveSizesRef.current) {
+      clearTimeout(debounceSaveSizesRef.current);
+    }
+    debounceSaveSizesRef.current = setTimeout(() => {
+      saveSizesToConfig(updated);
+    }, 400);
   };
 
   // DRAG & DROP NATIVO / POINTER TOUCH HANDLERS COM SNAP NA PAREDE PARA A PORTA
@@ -1171,7 +1179,7 @@ export const ClassroomMappingModal: React.FC<ClassroomMappingModalProps> = ({
                 transformOrigin: 'center center',
                 touchAction: 'none',
               }}
-              className={`z-30 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-emerald-400 select-none transition-transform ${
+              className={`z-30 px-2.5 py-1 rounded-lg bg-emerald-700 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md border-2 border-emerald-400 select-none ${
                 canEditLayout ? 'cursor-move hover:border-emerald-300' : 'cursor-default'
               }`}
               title="Porta de Entrada (Arraste para fixar em qualquer parede da sala)"
