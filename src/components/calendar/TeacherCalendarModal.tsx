@@ -222,7 +222,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
 
   // Handlers de Duplo Clique & Duplo Toque para adicionar eventos/atividades
   const handleDayDoubleClick = (dateStr: string) => {
-    if (isDrawMode) return;
+    setIsDrawMode(false);
     setQuickAddModalDate(dateStr);
     setQuickAddTitle('');
     setQuickAddTurma('');
@@ -489,7 +489,8 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden border border-slate-200">
         
         {/* Cabeçalho Alegre e Calmo */}
@@ -660,7 +661,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
             {/* CANVAS TRANSPARENTE PARA DESENHO / CANETINHA SOBRE O CALENDÁRIO */}
             <canvas
               ref={canvasRef}
-              className={`absolute inset-0 z-20 rounded-2xl ${
+              className={`absolute inset-0 z-10 rounded-2xl ${
                 isDrawMode ? 'cursor-crosshair pointer-events-auto touch-none' : 'pointer-events-none'
               }`}
               style={{ touchAction: isDrawMode ? 'none' : 'auto' }}
@@ -675,7 +676,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
 
             {/* BARRA DE FERRAMENTAS DO MODO CANETA (QUANDO ATIVO) */}
             {isDrawMode && (
-              <div className="mb-2 p-2 bg-slate-900 text-white rounded-xl shadow-lg border border-slate-700 flex flex-wrap items-center justify-between gap-2 animate-fadeIn z-30">
+              <div className="mb-2 p-2 bg-slate-900 text-white rounded-xl shadow-lg border border-slate-700 flex flex-wrap items-center justify-between gap-2 animate-fadeIn z-20">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="flex items-center gap-1.5 bg-slate-800 px-2 py-1 rounded-lg">
                     <Pencil className="w-3.5 h-3.5 text-amber-400" />
@@ -1023,11 +1024,15 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
         </div>
 
       </div>
+    </div>
 
-      {/* MODAL RÁPIDO PARA ADICIONAR ATIVIDADE / EVENTO POR DUPLO CLIQUE */}
-      {quickAddModalDate && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-scaleIn">
+    {/* MODAL RÁPIDO PARA ADICIONAR ATIVIDADE / EVENTO POR DUPLO CLIQUE */}
+    {quickAddModalDate && (
+      <div
+        style={{ zIndex: 99999 }}
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-950/75 backdrop-blur-sm animate-fadeIn"
+      >
+        <div className="relative z-10 bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-scaleIn">
             <div className="px-5 py-4 bg-gradient-to-r from-sky-600 via-indigo-600 to-teal-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 bg-white/20 rounded-xl">
@@ -1160,6 +1165,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
