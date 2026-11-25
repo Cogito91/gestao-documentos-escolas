@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Plus, Trash2, Tag, Clock, Loader2 } from 'lucide-react';
 import { SchoolEvent } from '../../types/database.types';
 import { pedagogicalService } from '../../services/pedagogicalService';
+import { isSemedOfficialEvent } from '../../data/semedCalendar2026';
 
 interface SchoolCalendarModalProps {
   isOpen: boolean;
@@ -98,6 +99,24 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
 
         {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* Selo de Integração SEMED Manaus */}
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-xs text-emerald-900">
+              <strong className="font-extrabold">Calendário Oficial SEMED Manaus 2026 integrado</strong>
+              <p className="text-[11px] text-emerald-800 mt-0.5">
+                Bimestres, avaliações (Av1/Av2/Av3 e ADE), planejamentos, lançamento de notas, conselho, feriados e recessos (Resolução Nº 183/CME/2025).
+              </p>
+            </div>
+            <a
+              href="https://www.manaus.am.gov.br/semed/calendario-escolar/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shrink-0 transition"
+            >
+              Portal SEMED
+            </a>
+          </div>
           
           {/* Adicionar Evento (se for pedagoga/admin) */}
           {canEdit && (
@@ -183,42 +202,50 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                   Nenhum evento registrado no calendário escolar.
                 </div>
               ) : (
-                events.map((ev) => (
-                  <div
-                    key={ev.id}
-                    className="p-3.5 bg-white border border-slate-200 rounded-xl hover:shadow-sm transition flex items-center justify-between"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <div className="p-2 bg-slate-100 rounded-xl text-center min-w-[50px]">
-                        <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                          {new Date(ev.event_date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}
-                        </span>
-                        <span className="text-base font-extrabold text-slate-800 block leading-tight">
-                          {new Date(ev.event_date + 'T00:00:00').getDate()}
-                        </span>
-                      </div>
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <h5 className="font-bold text-xs sm:text-sm text-slate-800">{ev.title}</h5>
-                          {getTypeBadge(ev.event_type)}
+                events.map((ev) => {
+                  const isSemed = isSemedOfficialEvent(ev.id);
+                  return (
+                    <div
+                      key={ev.id}
+                      className="p-3.5 bg-white border border-slate-200 rounded-xl hover:shadow-sm transition flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-start space-x-3">
+                        <div className="p-2 bg-slate-100 rounded-xl text-center min-w-[50px]">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                            {new Date(ev.event_date + 'T00:00:00').toLocaleDateString('pt-BR', { month: 'short' })}
+                          </span>
+                          <span className="text-base font-extrabold text-slate-800 block leading-tight">
+                            {new Date(ev.event_date + 'T00:00:00').getDate()}
+                          </span>
                         </div>
-                        {ev.description && (
-                          <p className="text-xs text-slate-500 mt-0.5">{ev.description}</p>
-                        )}
+                        <div>
+                          <div className="flex items-center flex-wrap gap-1.5">
+                            <h5 className="font-bold text-xs sm:text-sm text-slate-800">{ev.title}</h5>
+                            {getTypeBadge(ev.event_type)}
+                            {isSemed && (
+                              <span className="bg-teal-100 text-teal-800 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                                SEMED 2026
+                              </span>
+                            )}
+                          </div>
+                          {ev.description && (
+                            <p className="text-xs text-slate-500 mt-0.5">{ev.description}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    {canEdit && (
-                      <button
-                        onClick={() => handleDeleteEvent(ev.id)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
-                        title="Remover evento"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                ))
+                      {canEdit && !isSemed && (
+                        <button
+                          onClick={() => handleDeleteEvent(ev.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition"
+                          title="Remover evento"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>

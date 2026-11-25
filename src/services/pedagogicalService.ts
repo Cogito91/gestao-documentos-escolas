@@ -6,6 +6,7 @@ import {
   Birthday 
 } from '../types/database.types';
 import { encodeCategoryDescription, normalizeCategory } from '../lib/utils';
+import { SEMED_MANAUS_2026_EVENTS } from '../data/semedCalendar2026';
 
 export const pedagogicalService = {
   // ================= CATEGORIAS E PRAZOS =================
@@ -170,16 +171,34 @@ export const pedagogicalService = {
 
   // ================= CALENDÁRIO ESCOLAR =================
   async getSchoolEvents(): Promise<SchoolEvent[]> {
-    const { data, error } = await supabase
-      .from('school_events')
-      .select('*')
-      .order('event_date', { ascending: true });
+    let customEvents: SchoolEvent[] = [];
+    try {
+      const { data, error } = await supabase
+        .from('school_events')
+        .select('*')
+        .order('event_date', { ascending: true });
 
-    if (error) {
-      console.warn('Tabela school_events não inicializada ainda:', error.message);
-      return [];
+      if (error) {
+        console.warn('Tabela school_events não inicializada ainda:', error.message);
+      } else {
+        customEvents = (data || []) as SchoolEvent[];
+      }
+    } catch (err) {
+      console.warn('Usando apenas calendário oficial SEMED offline:', err);
     }
-    return (data || []) as SchoolEvent[];
+
+    // Mescla eventos da escola com o Calendário Oficial SEMED Manaus 2026 sem duplicar
+    const seenKeys = new Set(
+      customEvents.map((ev) => `${ev.event_date}::${ev.title.trim().toLowerCase()}`)
+    );
+    const merged: SchoolEvent[] = [
+      ...customEvents,
+      ...SEMED_MANAUS_2026_EVENTS.filter(
+        (ev) => !seenKeys.has(`${ev.event_date}::${ev.title.trim().toLowerCase()}`)
+      ),
+    ];
+
+    return merged.sort((a, b) => a.event_date.localeCompare(b.event_date));
   },
 
   async addSchoolEvent(event: Omit<SchoolEvent, 'id' | 'created_at'>): Promise<SchoolEvent> {
