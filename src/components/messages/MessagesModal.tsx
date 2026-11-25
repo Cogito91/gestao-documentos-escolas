@@ -24,6 +24,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
 
+  useEffect(() => {
+    if (isOpen && initialTargetUser) {
+      setSelectedContact(initialTargetUser);
+    }
+  }, [isOpen, initialTargetUser]);
+
   // Carrega lista de contatos possíveis de acordo com o perfil
   useEffect(() => {
     if (!isOpen || !user) return;
@@ -31,20 +37,37 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
     const loadContacts = async () => {
       setLoading(true);
       try {
-        if (profile?.role === 'pedagoga' || profile?.role === 'admin') {
-          // Pedagoga pode falar com todos os professores
-          const teachers = await authService.getTeachers();
-          setContacts(teachers);
-          if (!selectedContact && teachers.length > 0) {
-            setSelectedContact(teachers[0]);
+        const contactList =
+          profile?.role === 'pedagoga' || profile?.role === 'admin'
+            ? await authService.getTeachers()
+            : await authService.getPedagogas();
+        setContacts(contactList);
+
+        if (!initialTargetUser && contactList.length > 0) {
+          // Prioriza selecionar automaticamente o contato que enviou mensagem não lida
+          let preferred = selectedContact && contactList.some(c => c.id === selectedContact.id)
+            ? selectedContact
+            : contactList[0];
+
+          try {
+            const allMsgs = await messageService.getMessages();
+            const unreadSenderIds = new Set(
+              allMsgs
+                .filter(
+                  (m) =>
+                    m.recipient_id === user.id &&
+                    m.sender_id !== user.id &&
+                    !messageService.isMessageRead(m, user.id)
+                )
+                .map((m) => m.sender_id)
+            );
+            const unreadContact = contactList.find((c) => unreadSenderIds.has(c.id));
+            if (unreadContact) preferred = unreadContact;
+          } catch {
+            // mantém contato padrão
           }
-        } else {
-          // Professor fala com as pedagogas/coordenação
-          const pedagogas = await authService.getPedagogas();
-          setContacts(pedagogas);
-          if (!selectedContact && pedagogas.length > 0) {
-            setSelectedContact(pedagogas[0]);
-          }
+
+          setSelectedContact(preferred);
         }
       } catch (err) {
         console.error('Erro ao carregar contatos:', err);
@@ -68,12 +91,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
       );
       setMessages(filtered);
 
-      // Marca as recebidas não lidas como lidas
+      // Marca as recebidas não lidas como lidas (no Supabase e localmente)
       const unreadIds = filtered
-        .filter(m => m.recipient_id === user.id && !m.read)
+        .filter(m => m.recipient_id === user.id && !messageService.isMessageRead(m, user.id))
         .map(m => m.id);
       if (unreadIds.length > 0) {
-        await messageService.markAsRead(unreadIds);
+        await messageService.markAsRead(unreadIds, user.id);
       }
     } catch (err) {
       console.error('Erro ao buscar conversa:', err);
@@ -81,12 +104,12 @@ export const MessagesModal: React.FC<MessagesModalProps> = ({
   };
 
   useEffect(() => {
-    if (selectedContact) {
+    if (isOpen && selectedContact) {
       loadConversation();
       const interval = setInterval(loadConversation, 5000); // Polling leve a cada 5s
       return () => clearInterval(interval);
     }
-  }, [selectedContact, user]);
+  }, [isOpen, selectedContact, user]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

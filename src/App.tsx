@@ -182,7 +182,12 @@ const MainApp: React.FC = () => {
       // 7. Mensagens não lidas
       try {
         const msgs = await messageService.getMessages();
-        const myUnread = msgs.filter(m => m.recipient_id === user.id && !m.read);
+        const myUnread = msgs.filter(
+          (m) =>
+            m.recipient_id === user.id &&
+            m.sender_id !== user.id &&
+            !messageService.isMessageRead(m, user.id)
+        );
         setUnreadMessagesCount(myUnread.length);
         msgs.forEach(m => seenMessageIdsRef.current.add(m.id));
         messagesInitializedRef.current = true;
@@ -214,6 +219,8 @@ const MainApp: React.FC = () => {
 
     const notifyIncomingMessage = (msg: { id: string; content: string; sender_id: string; recipient_id: string; read?: boolean }) => {
       if (msg.recipient_id !== user.id || msg.sender_id === user.id) return;
+      if (msg.content?.startsWith('<!--TEACHER_CALENDAR_SYNC')) return;
+      if (messageService.isMessageRead(msg, user.id)) return;
       if (seenMessageIdsRef.current.has(msg.id)) return;
 
       seenMessageIdsRef.current.add(msg.id);
@@ -248,7 +255,12 @@ const MainApp: React.FC = () => {
       if (!messagesInitializedRef.current) return;
       try {
         const msgs = await messageService.getMessages();
-        const myUnread = msgs.filter(m => m.recipient_id === user.id && !m.read);
+        const myUnread = msgs.filter(
+          (m) =>
+            m.recipient_id === user.id &&
+            m.sender_id !== user.id &&
+            !messageService.isMessageRead(m, user.id)
+        );
         setUnreadMessagesCount(myUnread.length);
         myUnread.forEach(m => notifyIncomingMessage(m));
       } catch {
@@ -351,6 +363,10 @@ const MainApp: React.FC = () => {
         onOpenMyActivities={() => {
           // Dispara evento customizado para o ProfessorDashboard abrir o modal de atividades
           window.dispatchEvent(new CustomEvent('open_my_activities_modal'));
+        }}
+        onOpenDiarioDeBordo={() => {
+          // Dispara evento customizado para o ProfessorDashboard abrir o Diário de Bordo
+          window.dispatchEvent(new CustomEvent('open_diario_de_bordo_modal'));
         }}
         onMarkNotificationAsRead={handleMarkNotificationAsRead}
         onMarkAllNotificationsAsRead={handleMarkAllNotificationsAsRead}

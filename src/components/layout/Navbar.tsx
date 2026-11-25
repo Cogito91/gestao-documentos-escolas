@@ -29,6 +29,7 @@ interface NavbarProps {
   onOpenCalendar: () => void;
   onOpenBirthdays: () => void;
   onOpenMyActivities?: () => void;
+  onOpenDiarioDeBordo?: () => void;
   onMarkNotificationAsRead: (id: string) => void;
   onMarkAllNotificationsAsRead: () => void;
 }
@@ -43,6 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenCalendar,
   onOpenBirthdays,
   onOpenMyActivities,
+  onOpenDiarioDeBordo,
   onMarkNotificationAsRead,
   onMarkAllNotificationsAsRead,
 }) => {
@@ -330,6 +332,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Settings className="w-4 h-4 text-purple-600 shrink-0" />
                 <span>Configurar Prazos Finais</span>
+              </button>
+            )}
+
+            {!isPedagoga && onOpenDiarioDeBordo && (
+              <button
+                type="button"
+                onClick={() => { setIsDrawerOpen(false); onOpenDiarioDeBordo(); }}
+                className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100 transition text-left border border-emerald-200/80"
+              >
+                <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Diário de Bordo</span>
               </button>
             )}
 

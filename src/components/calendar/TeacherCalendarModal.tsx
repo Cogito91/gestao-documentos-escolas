@@ -45,23 +45,17 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   const [selectedTurmaFilter, setSelectedTurmaFilter] = useState<string>('all');
   const [selectedDayEvents, setSelectedDayEvents] = useState<string | null>(null);
 
-  // Carrega atividades, avaliações e diários de bordo do professor salvas no localStorage
+  // Carrega atividades e avaliações do professor salvas no localStorage
   const [savedAssessments, setSavedAssessments] = useState<any[]>([]);
   const [savedActivities, setSavedActivities] = useState<any[]>([]);
   const [savedCustomEvents, setSavedCustomEvents] = useState<any[]>([]);
-  const [savedDailyLogs, setSavedDailyLogs] = useState<any[]>([]);
 
   // Modal rápido de agendamento por duplo clique / clique e segura
   const [quickAddModalDate, setQuickAddModalDate] = useState<string | null>(null);
-  const [quickAddType, setQuickAddType] = useState<'daily_log' | 'activity' | 'assessment'>('daily_log');
+  const [quickAddType, setQuickAddType] = useState<'activity' | 'assessment'>('activity');
   const [quickAddTitle, setQuickAddTitle] = useState('');
   const [quickAddTurma, setQuickAddTurma] = useState('');
   const [quickAddDetails, setQuickAddDetails] = useState('');
-
-  // Campos específicos do Diário de Bordo
-  const [dailyActivitiesToday, setDailyActivitiesToday] = useState('');
-  const [dailyClasswork, setDailyClasswork] = useState('');
-  const [dailyHomework, setDailyHomework] = useState('');
 
   // Ferramenta Canetinha / Rabiscar sobre o calendário
   const [isDrawMode, setIsDrawMode] = useState(false);
@@ -83,7 +77,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
     setSavedAssessments(local.assessments);
     setSavedActivities(local.activities);
     setSavedCustomEvents(local.customEvents);
-    setSavedDailyLogs(local.dailyLogs);
 
     // 2. Sincroniza em segundo plano com o Supabase na nuvem
     try {
@@ -91,7 +84,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       setSavedAssessments(synced.assessments);
       setSavedActivities(synced.activities);
       setSavedCustomEvents(synced.customEvents);
-      setSavedDailyLogs(synced.dailyLogs);
     } catch (err) {
       console.warn('Erro ao sincronizar calendário com a nuvem:', err);
     }
@@ -239,25 +231,12 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
   const handleDayDoubleClick = (dateStr: string) => {
     setIsDrawMode(false);
     setQuickAddModalDate(dateStr);
-    setQuickAddType('daily_log');
+    setQuickAddType('activity');
     setQuickAddTitle('');
-    setQuickAddTurma('');
+    setQuickAddTurma(
+      selectedTurmaFilter !== 'all' && selectedTurmaFilter !== 'today_classes' ? selectedTurmaFilter : ''
+    );
     setQuickAddDetails('');
-
-    // Se já houver um registro de Diário de Bordo para este dia, pré-carrega para facilitar edição
-    const dailyLogs = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
-    const existing = dailyLogs.find((d: any) => d.date === dateStr);
-    if (existing) {
-      setDailyActivitiesToday(existing.activitiesToday || '');
-      setDailyClasswork(existing.classwork || '');
-      setDailyHomework(existing.homework || '');
-      setQuickAddTurma(existing.turma || (selectedTurmaFilter !== 'all' && selectedTurmaFilter !== 'today_classes' ? selectedTurmaFilter : ''));
-    } else {
-      setDailyActivitiesToday('');
-      setDailyClasswork('');
-      setDailyHomework('');
-      setQuickAddTurma(selectedTurmaFilter !== 'all' && selectedTurmaFilter !== 'today_classes' ? selectedTurmaFilter : '');
-    }
   };
 
   const handleDayMouseDownOrTouchStart = (dateStr: string) => {
@@ -285,26 +264,9 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
 
   const handleSaveQuickItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickAddModalDate) return;
+    if (!quickAddModalDate || !quickAddTitle.trim()) return;
 
-    if (quickAddType === 'daily_log') {
-      if (!dailyActivitiesToday.trim() && !dailyClasswork.trim() && !dailyHomework.trim()) {
-        alert('Por favor, preencha pelo menos um dos campos do Diário de Bordo.');
-        return;
-      }
-      const list = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
-      const filtered = list.filter((d: any) => d.date !== quickAddModalDate);
-      filtered.push({
-        id: 'daily-' + Date.now().toString(),
-        date: quickAddModalDate,
-        turma: quickAddTurma.trim() || undefined,
-        activitiesToday: dailyActivitiesToday.trim(),
-        classwork: dailyClasswork.trim(),
-        homework: dailyHomework.trim(),
-      });
-      localStorage.setItem('teacher_daily_logs', JSON.stringify(filtered));
-    } else if (quickAddType === 'activity') {
-      if (!quickAddTitle.trim()) return;
+    if (quickAddType === 'activity') {
       const list = JSON.parse(localStorage.getItem('teacher_scheduled_activities') || '[]');
       list.push({
         id: 'custom-' + Date.now().toString(),
@@ -315,7 +277,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       });
       localStorage.setItem('teacher_scheduled_activities', JSON.stringify(list));
     } else {
-      if (!quickAddTitle.trim()) return;
       const list = JSON.parse(localStorage.getItem('teacher_scheduled_assessments') || '[]');
       list.push({
         id: 'custom-' + Date.now().toString(),
@@ -361,7 +322,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       id: string;
       title: string;
       date: string; // YYYY-MM-DD
-      type: 'document' | 'assessment' | 'activity' | 'event' | 'daily_log';
+      type: 'document' | 'assessment' | 'activity' | 'event';
       details?: string;
       turma?: string;
       meta?: any;
@@ -453,30 +414,8 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       }
     });
 
-    // 6. Diários de Bordo do Professor (Hoje & Tarefas)
-    savedDailyLogs.forEach((log) => {
-      if (log.date) {
-        const cleanDate = log.date.split('T')[0];
-        const preview = log.activitiesToday || log.classwork || log.homework || 'Registro de aula';
-        const detailsList = [];
-        if (log.activitiesToday) detailsList.push(`Hoje: ${log.activitiesToday}`);
-        if (log.classwork) detailsList.push(`Sala: ${log.classwork}`);
-        if (log.homework) detailsList.push(`Casa: ${log.homework}`);
-
-        items.push({
-          id: log.id || `daily-${cleanDate}`,
-          title: `Diário: ${preview}`,
-          date: cleanDate,
-          type: 'daily_log' as any,
-          details: detailsList.join(' • ') + (log.turma ? ` (${log.turma})` : ''),
-          turma: log.turma,
-          meta: log,
-        });
-      }
-    });
-
     return items;
-  }, [pendingCategories, savedAssessments, savedActivities, savedCustomEvents, savedDailyLogs, schoolEvents, year]);
+  }, [pendingCategories, savedAssessments, savedActivities, savedCustomEvents, schoolEvents, year]);
 
   const todayStr = useMemo(() => {
     const now = new Date();
@@ -617,12 +556,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       const saved = JSON.parse(localStorage.getItem('teacher_custom_events') || '[]');
       const filtered = saved.filter((e: any) => e.id !== item.id && e.id !== item.meta?.id);
       localStorage.setItem('teacher_custom_events', JSON.stringify(filtered));
-      loadData();
-    } else if (item.type === 'daily_log') {
-      if (!confirm('Deseja remover este registro do Diário de Bordo?')) return;
-      const list = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
-      const filtered = list.filter((d: any) => d.id !== item.id && d.date !== item.date);
-      localStorage.setItem('teacher_daily_logs', JSON.stringify(filtered));
       loadData();
     }
 
@@ -974,7 +907,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
             <div className="flex items-center justify-between text-[11px] text-slate-500 mb-2 px-1 min-h-[20px]">
               <span className="flex items-center gap-1 text-slate-600">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Clique e segure (ou dê <strong>duplo clique</strong>) em qualquer dia para registrar o <strong>Diário de Bordo</strong> ou atividades.</span>
+                <span>Clique e segure (ou dê <strong>duplo clique</strong>) em qualquer dia para agendar <strong>atividades</strong> ou <strong>avaliações</strong>.</span>
               </span>
               {hasDoodle && (
                 <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-semibold shrink-0 ml-2">
@@ -1033,7 +966,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                         setSelectedDayEvents(day.dateStr === selectedDayEvents ? null : day.dateStr);
                       }
                     }}
-                    title="Clique para ver detalhes • Segure ou dê duplo clique para Diário de Bordo ou Atividade"
+                    title="Clique para ver detalhes • Segure ou dê duplo clique para agendar Atividade ou Avaliação"
                     className={`min-h-[82px] p-1.5 rounded-xl border transition-all duration-150 flex flex-col justify-between cursor-pointer select-none ${
                       !day.isCurrentMonth
                         ? 'bg-slate-50/50 border-slate-100 text-slate-300'
@@ -1071,7 +1004,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                       {dayItems.slice(0, 2).map((item) => {
                         let color = 'bg-slate-100 text-slate-700 border-slate-200';
                         if (item.type === 'document') color = 'bg-rose-50 text-rose-800 border-rose-200 font-bold';
-                        else if (item.type === 'daily_log') color = 'bg-emerald-50 text-emerald-900 border-emerald-300 font-bold';
                         else if (item.type === 'assessment') color = 'bg-indigo-50 text-indigo-800 border-indigo-200 font-bold';
                         else if (item.type === 'activity') color = 'bg-teal-50 text-teal-800 border-teal-200 font-bold';
                         else if (item.type === 'event') color = 'bg-amber-50 text-amber-900 border-amber-200 font-semibold';
@@ -1110,7 +1042,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     {selectedDayEvents
                       ? `Itens do dia ${selectedDayEvents.split('-').reverse().join('/')}${selectedTurmaFilter !== 'all' ? ` (${selectedTurmaFilter})` : ''}`
                       : selectedTurmaFilter !== 'all'
-                      ? `Histórico de Aulas: ${selectedTurmaFilter}`
+                      ? `Compromissos da Turma: ${selectedTurmaFilter}`
                       : 'Próximos Prazos & Compromissos'}
                   </span>
                 </h4>
@@ -1118,7 +1050,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                   {selectedDayEvents
                     ? 'Clique no dia novamente para ver todos'
                     : selectedTurmaFilter !== 'all'
-                    ? `Visualizando apenas observações e diários do ${selectedTurmaFilter}`
+                    ? `Visualizando apenas atividades e avaliações do ${selectedTurmaFilter}`
                     : 'Listagem cronológica organizada'}
                 </p>
               </div>
@@ -1158,11 +1090,6 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     badge = {
                       label: 'Prazo de Documento',
                       classes: 'bg-rose-100 text-rose-800 border-rose-200',
-                    };
-                  } else if ((item.type as any) === 'daily_log') {
-                    badge = {
-                      label: 'Diário de Bordo',
-                      classes: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
                     };
                   } else if (isAssessment) {
                     badge = {
@@ -1227,7 +1154,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                           </button>
                         )}
 
-                        {(isAssessment || isActivity || (item.type as any) === 'daily_log' || (item.type === 'event' && String(item.id).startsWith('custom-'))) && (
+                        {(isAssessment || isActivity || (item.type === 'event' && String(item.id).startsWith('custom-'))) && (
                           <button
                             type="button"
                             onClick={() => handleDeleteItem(item)}
@@ -1252,7 +1179,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
       </div>
     </div>
 
-    {/* MODAL RÁPIDO PARA ADICIONAR ATIVIDADE / EVENTO POR DUPLO CLIQUE */}
+    {/* MODAL RÁPIDO PARA ADICIONAR ATIVIDADE / AVALIAÇÃO POR DUPLO CLIQUE */}
     {quickAddModalDate && (
       <div
         style={{ zIndex: 99999 }}
@@ -1269,7 +1196,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     Novo Agendamento
                   </h4>
                   <p className="text-[11px] text-sky-100">
-                    Adicionar atividade ou evento para {quickAddModalDate.split('-').reverse().join('/')}
+                    Adicionar atividade ou avaliação para {quickAddModalDate.split('-').reverse().join('/')}
                   </p>
                 </div>
               </div>
@@ -1287,22 +1214,8 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                 <label className="text-xs font-bold text-slate-700 block mb-1.5">
                   Tipo de Agendamento *
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {/* 1. DIÁRIO DE BORDO */}
-                  <button
-                    type="button"
-                    onClick={() => setQuickAddType('daily_log')}
-                    className={`py-2 px-2 text-xs font-bold rounded-xl border flex flex-col items-center gap-1 transition cursor-pointer ${
-                      quickAddType === 'daily_log'
-                        ? 'bg-emerald-50 border-emerald-500 text-emerald-800 ring-2 ring-emerald-300'
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span>Diário de Bordo</span>
-                  </button>
-
-                  {/* 2. ATIVIDADE */}
+                <div className="grid grid-cols-2 gap-2">
+                  {/* 1. ATIVIDADE */}
                   <button
                     type="button"
                     onClick={() => setQuickAddType('activity')}
@@ -1316,7 +1229,7 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                     <span>Atividade</span>
                   </button>
 
-                  {/* 3. AVALIAÇÃO */}
+                  {/* 2. AVALIAÇÃO */}
                   <button
                     type="button"
                     onClick={() => setQuickAddType('assessment')}
@@ -1332,107 +1245,46 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                 </div>
               </div>
 
-              {/* CAMPOS ESPECÍFICOS CONFORME O TIPO */}
-              {quickAddType === 'daily_log' ? (
-                <>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Atividades Desempenhadas Hoje *
-                    </label>
-                    <textarea
-                      rows={2}
-                      required
-                      placeholder="Ex: Introdução ao conteúdo, leitura guiada do capítulo 4..."
-                      value={dailyActivitiesToday}
-                      onChange={(e) => setDailyActivitiesToday(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none resize-none font-medium text-slate-800"
-                      autoFocus
-                    />
-                  </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Título *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={quickAddType === 'activity' ? "Ex: Trabalho de Ciências em Grupo" : "Ex: Prova Bimestral de Matemática"}
+                  value={quickAddTitle}
+                  onChange={(e) => setQuickAddTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
+                  autoFocus
+                />
+              </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Tarefa de Sala
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Resolução dos exercícios 1 a 6 da página 45"
-                      value={dailyClasswork}
-                      onChange={(e) => setDailyClasswork(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800"
-                    />
-                  </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Turma (Opcional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: 9º Ano A (ou deixe vazio para todas)"
+                  value={quickAddTurma}
+                  onChange={(e) => setQuickAddTurma(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Tarefa de Casa
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: Exercícios 7 e 8 da página 46 para amanhã"
-                      value={dailyHomework}
-                      onChange={(e) => setDailyHomework(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-medium text-slate-800"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Turma (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 9º Ano A"
-                      value={quickAddTurma}
-                      onChange={(e) => setQuickAddTurma(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Título *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={quickAddType === 'activity' ? "Ex: Trabalho de Ciências em Grupo" : "Ex: Prova Bimestral de Matemática"}
-                      value={quickAddTitle}
-                      onChange={(e) => setQuickAddTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none font-medium"
-                      autoFocus
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Turma (Opcional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Ex: 9º Ano A (ou deixe vazio para todas)"
-                      value={quickAddTurma}
-                      onChange={(e) => setQuickAddTurma(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">
-                      Detalhes / Orientações (Opcional)
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder="Ex: Trazer material para elaboração dos cartazes..."
-                      value={quickAddDetails}
-                      onChange={(e) => setQuickAddDetails(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                    />
-                  </div>
-                </>
-              )}
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">
+                  Detalhes / Orientações (Opcional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ex: Trazer material para elaboração dos cartazes..."
+                  value={quickAddDetails}
+                  onChange={(e) => setQuickAddDetails(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                />
+              </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
@@ -1444,21 +1296,11 @@ export const TeacherCalendarModal: React.FC<TeacherCalendarModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={
-                    quickAddType === 'daily_log'
-                      ? !dailyActivitiesToday.trim() && !dailyClasswork.trim() && !dailyHomework.trim()
-                      : !quickAddTitle.trim()
-                  }
-                  className={`px-4 py-2 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
-                    quickAddType === 'daily_log'
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
+                  disabled={!quickAddTitle.trim()}
+                  className="px-4 py-2 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 bg-indigo-600 hover:bg-indigo-700"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>
-                    {quickAddType === 'daily_log' ? 'Salvar no Diário de Bordo' : 'Salvar no Calendário'}
-                  </span>
+                  <span>Salvar no Calendário</span>
                 </button>
               </div>
             </form>

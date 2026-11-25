@@ -4,9 +4,13 @@ export interface DailyLogEntry {
   id: string;
   date: string; // YYYY-MM-DD
   turma?: string;
-  activitiesToday?: string;
-  classwork?: string;
-  homework?: string;
+  period?: number; // 1..5 (Manhã), 11..15 (Tarde), 21..25 (Noite)
+  timeSlot?: string; // ex: "07:30 - 08:15"
+  subject?: string;
+  activitiesToday?: string; // O que foi dado na aula / conteúdo planejado
+  classwork?: string; // Tarefa de sala
+  homework?: string; // Tarefa de casa
+  nextLessonPlan?: string; // Planejamento para a próxima aula
   authorId?: string;
   updatedAt?: string;
 }
@@ -41,6 +45,11 @@ const STORAGE_KEY_ACTIVITIES = 'teacher_scheduled_activities';
 const STORAGE_KEY_ASSESSMENTS = 'teacher_scheduled_assessments';
 const STORAGE_KEY_CUSTOM_EVENTS = 'teacher_custom_events';
 const SYNC_TAG = '<!--TEACHER_CALENDAR_SYNC_v1-->';
+
+const getDailyLogKey = (log: DailyLogEntry): string => {
+  if (log.id) return log.id;
+  return `${log.date}_${(log.turma || '').trim().toLowerCase()}_${log.period ?? 0}`;
+};
 
 export const teacherCalendarService = {
   // Carrega do cache local imediato
@@ -80,14 +89,21 @@ export const teacherCalendarService = {
           id: d.id,
           date: d.date,
           turma: d.turma,
+          period: d.period ?? undefined,
+          timeSlot: d.time_slot ?? undefined,
+          subject: d.subject ?? undefined,
           activitiesToday: d.activities_today,
           classwork: d.classwork,
           homework: d.homework,
+          nextLessonPlan: d.next_lesson_plan ?? undefined,
           authorId: d.teacher_id,
           updatedAt: d.updated_at,
         }));
-        local.dailyLogs = mappedLogs;
-        this.saveLocalData({ dailyLogs: mappedLogs });
+        const map = new Map<string, DailyLogEntry>();
+        local.dailyLogs.forEach((l) => map.set(getDailyLogKey(l), l));
+        mappedLogs.forEach((l) => map.set(getDailyLogKey(l), l));
+        local.dailyLogs = Array.from(map.values());
+        this.saveLocalData({ dailyLogs: local.dailyLogs });
       }
 
       // 2. Sincroniza estado unificado na nuvem através do canal seguro do Supabase
@@ -102,11 +118,17 @@ export const teacherCalendarService = {
         const payload = cloudSync[0].content.replace(SYNC_TAG, '').trim();
         const parsed: TeacherCalendarData = JSON.parse(payload);
 
-        // Mescla sem perder dados locais mais novos
+        // Mescla preservando registros mais recentes (sem colisão entre turmas do mesmo dia)
         if (parsed.dailyLogs) {
           const map = new Map<string, DailyLogEntry>();
-          local.dailyLogs.forEach((l) => map.set(l.id || l.date, l));
-          parsed.dailyLogs.forEach((l) => map.set(l.id || l.date, l));
+          parsed.dailyLogs.forEach((l) => map.set(getDailyLogKey(l), l));
+          local.dailyLogs.forEach((l) => {
+            const key = getDailyLogKey(l);
+            const existing = map.get(key);
+            if (!existing || (l.updatedAt && (!existing.updatedAt || l.updatedAt > existing.updatedAt))) {
+              map.set(key, l);
+            }
+          });
           local.dailyLogs = Array.from(map.values());
         }
         if (parsed.activities) {
@@ -137,6 +159,16 @@ export const teacherCalendarService = {
     return local;
   },
 
+  // Salva apenas a lista de Diários de Bordo preservando os demais dados do calendário
+  async saveDailyLogs(dailyLogs: DailyLogEntry[]): Promise<void> {
+    const current = this.getLocalData();
+    const updated: TeacherCalendarData = {
+      ...current,
+      dailyLogs,
+    };
+    await this.saveToCloud(updated);
+  },
+
   // Salva no banco de dados Supabase na nuvem e atualiza o local
   async saveToCloud(data: TeacherCalendarData): Promise<void> {
     this.saveLocalData(data);
@@ -156,7 +188,7 @@ export const teacherCalendarService = {
             classwork: log.classwork,
             homework: log.homework,
             teacher_id: authorId,
-            updated_at: new Date().toISOString(),
+            updated_at: log.updatedAt || new Date().toISOString(),
           }, { onConflict: 'date,turma' });
         } catch {
           // ignore se tabela dedicada ainda não existir
