@@ -79,6 +79,35 @@ export const documentService = {
     file_size: number;
     file_type?: string;
   }): Promise<SchoolDocument> {
+    if (doc.teacher_id.startsWith('sim-')) {
+      const SIM_DOCS_KEY = 'sim_uploaded_documents_v1';
+      const nowIso = new Date().toISOString();
+      const created = normalizeDocument({
+        id: `sim-doc-custom-${Date.now()}`,
+        teacher_id: doc.teacher_id,
+        category_id: doc.category_id ?? null,
+        folder_id: doc.folder_id ?? null,
+        title: doc.title,
+        description: doc.description || null,
+        file_url: doc.file_url,
+        file_name: doc.file_name,
+        file_size: doc.file_size,
+        file_type: doc.file_type || null,
+        status: 'pendente' as DocumentStatus,
+        submitted_at: nowIso,
+        updated_at: nowIso,
+      }) as SchoolDocument;
+
+      try {
+        const list: SchoolDocument[] = JSON.parse(localStorage.getItem(SIM_DOCS_KEY) || '[]');
+        list.unshift(created);
+        localStorage.setItem(SIM_DOCS_KEY, JSON.stringify(list));
+      } catch {
+        // ignore storage quota errors
+      }
+      return created;
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .insert({
@@ -98,6 +127,43 @@ export const documentService = {
 
   // Pedagoga avalia documento: aprova ou devolve com parecer
   async reviewDocument(documentId: string, reviewerId: string, status: 'aprovado' | 'devolvido', feedback?: string): Promise<SchoolDocument> {
+    if (documentId.startsWith('sim-')) {
+      const SIM_DOCS_KEY = 'sim_uploaded_documents_v1';
+      const nowIso = new Date().toISOString();
+      try {
+        const list: SchoolDocument[] = JSON.parse(localStorage.getItem(SIM_DOCS_KEY) || '[]');
+        const idx = list.findIndex((d) => d.id === documentId);
+        if (idx >= 0) {
+          list[idx] = {
+            ...list[idx],
+            status,
+            feedback: feedback || null,
+            reviewed_by: reviewerId,
+            reviewed_at: nowIso,
+            updated_at: nowIso,
+          };
+          localStorage.setItem(SIM_DOCS_KEY, JSON.stringify(list));
+          return list[idx];
+        }
+      } catch {
+        // ignore
+      }
+      return {
+        id: documentId,
+        teacher_id: 'sim-unknown',
+        title: 'Documento Simulado',
+        file_url: '',
+        file_name: 'documento.pdf',
+        file_size: 0,
+        status,
+        feedback: feedback || null,
+        reviewed_by: reviewerId,
+        reviewed_at: nowIso,
+        submitted_at: nowIso,
+        updated_at: nowIso,
+      };
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .update({
@@ -132,6 +198,26 @@ export const documentService = {
       file_type?: string;
     }
   ): Promise<SchoolDocument> {
+    if (documentId.startsWith('sim-')) {
+      const SIM_DOCS_KEY = 'sim_uploaded_documents_v1';
+      const nowIso = new Date().toISOString();
+      const list: SchoolDocument[] = JSON.parse(localStorage.getItem(SIM_DOCS_KEY) || '[]');
+      const idx = list.findIndex((d) => d.id === documentId);
+      const updated = normalizeDocument({
+        ...(idx >= 0 ? list[idx] : { id: documentId, teacher_id: 'sim-unknown', submitted_at: nowIso }),
+        ...updates,
+        status: 'pendente',
+        updated_at: nowIso,
+      }) as SchoolDocument;
+      if (idx >= 0) {
+        list[idx] = updated;
+      } else {
+        list.unshift(updated);
+      }
+      localStorage.setItem(SIM_DOCS_KEY, JSON.stringify(list));
+      return updated;
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .update({
@@ -149,6 +235,20 @@ export const documentService = {
 
   // Excluir documento pendente
   async deleteDocument(documentId: string): Promise<void> {
+    if (documentId.startsWith('sim-')) {
+      const SIM_DOCS_KEY = 'sim_uploaded_documents_v1';
+      try {
+        const list: SchoolDocument[] = JSON.parse(localStorage.getItem(SIM_DOCS_KEY) || '[]');
+        localStorage.setItem(
+          SIM_DOCS_KEY,
+          JSON.stringify(list.filter((d) => d.id !== documentId))
+        );
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     const { error } = await supabase
       .from('documents')
       .delete()

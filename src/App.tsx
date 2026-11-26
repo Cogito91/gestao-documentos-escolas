@@ -120,7 +120,13 @@ const MainApp: React.FC = () => {
     if (simulationMode) {
       const simCats = SIMULATED_CATEGORIES;
       const simSchedules = buildSimulatedSchedules();
-      const simDocs = buildSimulatedDocuments(simCats);
+      let customSimDocs: SchoolDocument[] = [];
+      try {
+        customSimDocs = JSON.parse(localStorage.getItem('sim_uploaded_documents_v1') || '[]');
+      } catch {
+        customSimDocs = [];
+      }
+      const simDocs = [...customSimDocs, ...buildSimulatedDocuments(simCats)];
       setCategories(simCats);
       setEvents(SEMED_MANAUS_2026_EVENTS);
       setBirthdays([]);

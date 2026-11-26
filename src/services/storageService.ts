@@ -10,6 +10,10 @@ export const storageService = {
       .replace(/\s+/g, '_');
     const filePath = `${userId}/${Date.now()}_${cleanFileName}`;
 
+    if (userId.startsWith('sim-')) {
+      return { path: filePath, publicUrl: URL.createObjectURL(file) };
+    }
+
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(filePath, file, {
