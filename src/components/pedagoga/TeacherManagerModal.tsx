@@ -47,12 +47,18 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
   const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(initialTeacher || (teachers[0] || null));
   const [showEditProfileCard, setShowEditProfileCard] = useState(false);
   const [isScheduleEditUnlocked, setIsScheduleEditUnlocked] = useState(false);
+  const [cellPickerTarget, setCellPickerTarget] = useState<{
+    dayId: number;
+    periodNum: number;
+    existing?: TeacherSchedule;
+  } | null>(null);
   const [schedules, setSchedules] = useState<TeacherSchedule[]>([]);
   const [regentsMap, setRegentsMap] = useState<Record<string, { teacherId: string; teacherName: string }>>({});
   const [savingRegent, setSavingRegent] = useState(false);
 
   useEffect(() => {
     setIsScheduleEditUnlocked(false);
+    setCellPickerTarget(null);
   }, [selectedTeacher?.id, isOpen]);
 
   useEffect(() => {
@@ -446,32 +452,32 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
   };
 
   const handleToggleCellSchedule = async (dayId: number, periodNum: number) => {
-    if (!selectedTeacher) return;
-    if (!isScheduleEditUnlocked) {
-      return;
-    }
+    if (!selectedTeacher || !isScheduleEditUnlocked) return;
     const existing = schedules.find(s => s.day_of_week === dayId && s.period === periodNum);
+    setCellPickerTarget({ dayId, periodNum, existing });
+  };
+
+  const handleAssignTurmaToCell = async (turmaName: string) => {
+    if (!selectedTeacher || !cellPickerTarget) return;
+    const { dayId, periodNum } = cellPickerTarget;
     const pInfo = currentPeriods.find(p => p.period === periodNum);
     if (!pInfo) return;
 
-    if (existing) {
-      await handleDeleteSchedule(existing.id);
-    } else {
-      try {
-        const discAbbr = selectedTeacher.discipline?.slice(0, 3).toUpperCase() || 'MAT';
-        await pedagogicalService.addTeacherSchedule({
-          teacher_id: selectedTeacher.id,
-          day_of_week: dayId,
-          period: periodNum,
-          start_time: pInfo.start_time,
-          end_time: pInfo.end_time,
-          class_name: selectedTurmaForGrid,
-          subject: selectedTeacher.discipline || discAbbr,
-        });
-        await loadSchedules(selectedTeacher.id);
-      } catch (err: any) {
-        alert('Erro ao marcar horário: ' + err.message);
-      }
+    try {
+      const discAbbr = selectedTeacher.discipline?.slice(0, 3).toUpperCase() || 'MAT';
+      await pedagogicalService.addTeacherSchedule({
+        teacher_id: selectedTeacher.id,
+        day_of_week: dayId,
+        period: periodNum,
+        start_time: pInfo.start_time,
+        end_time: pInfo.end_time,
+        class_name: turmaName,
+        subject: selectedTeacher.discipline || discAbbr,
+      });
+      await loadSchedules(selectedTeacher.id);
+      setCellPickerTarget(null);
+    } catch (err: any) {
+      alert('Erro ao marcar horário: ' + err.message);
     }
   };
 
@@ -1062,26 +1068,6 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Legenda de Cores das Turmas do Turno */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-slate-600">
-                    <span className="font-bold text-slate-700 mr-1">Legenda ({activeShiftTab === 'Noite' ? 'EJA' : 'Regular'}):</span>
-                    {Object.entries(CLASS_COLORS_MAP)
-                      .filter(([cName]) => activeShiftTab === 'Noite' ? cName.startsWith('EJA') : !cName.startsWith('EJA'))
-                      .map(([cName, info]) => (
-                        <span
-                          key={cName}
-                          onClick={() => setSelectedTurmaForGrid(cName)}
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded cursor-pointer border text-[10px] font-bold transition-all hover:scale-105 ${
-                            selectedTurmaForGrid === cName ? 'ring-2 ring-indigo-500 shadow-xs scale-105' : ''
-                          } ${info.pill}`}
-                          title={`Clique para selecionar ${cName}`}
-                        >
-                          <span className={`w-2 h-2 rounded-full ${info.dot}`}></span>
-                          {cName}
-                        </span>
-                      ))}
-                  </div>
-
                   {/* Grade Interativa dos 5 Tempos do Turno Atual */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-center border-collapse">
@@ -1303,6 +1289,80 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
           )}
 
         </div>
+
+        {/* POPOVER / MODAL DE ESCOLHA DA TURMA AO CLICAR NO HORÁRIO */}
+        {cellPickerTarget && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200 animate-scaleIn">
+              <div className="px-4 py-3 bg-indigo-600 text-white flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-sm">Escolher Turma para o Horário</h4>
+                  <p className="text-[11px] text-indigo-100">
+                    {days.find(d => d.id === cellPickerTarget.dayId)?.name} •{' '}
+                    {(() => {
+                      const idx = currentPeriods.findIndex(p => p.period === cellPickerTarget.periodNum);
+                      const pInfo = currentPeriods[idx];
+                      return pInfo ? `${idx + 1}º Tempo (${pInfo.start_time} - ${pInfo.end_time})` : '';
+                    })()}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCellPickerTarget(null)}
+                  className="p-1 hover:bg-white/20 rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-3 max-h-[65vh] overflow-y-auto">
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(CLASS_COLORS_MAP)
+                    .filter(([cName]) =>
+                      activeShiftTab === 'Noite' ? cName.startsWith('EJA') : !cName.startsWith('EJA')
+                    )
+                    .map(([cName, info]) => {
+                      const isCurrent = cellPickerTarget.existing?.class_name === cName;
+                      return (
+                        <button
+                          key={cName}
+                          type="button"
+                          onClick={() => handleAssignTurmaToCell(cName)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-extrabold transition hover:scale-105 ${
+                            isCurrent ? 'ring-2 ring-indigo-500 shadow-sm' : ''
+                          } ${info.pill}`}
+                        >
+                          <span className={`w-2.5 h-2.5 rounded-full ${info.dot}`}></span>
+                          <span>{cName}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {cellPickerTarget.existing && (
+                  <div className="pt-2 border-t border-slate-100 flex justify-between items-center">
+                    <span className="text-[11px] text-slate-500">
+                      Atual: <strong>{cellPickerTarget.existing.class_name}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (cellPickerTarget.existing) {
+                          await handleDeleteSchedule(cellPickerTarget.existing.id);
+                          setCellPickerTarget(null);
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-extrabold flex items-center gap-1 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remover aula</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
