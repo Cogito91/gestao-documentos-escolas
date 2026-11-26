@@ -39,6 +39,11 @@ const MONTH_NAMES = [
 
 const WEEKDAY_SHORT = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
+const SCHOOL_STICKERS = [
+  '🎉', '📝', '🚩', '🏁', '📚', '🗣️', '🏆', '🎨',
+  '⚽', '🎭', '📢', '⭐', '🎂', '🎓', '🧪', '🤝',
+];
+
 const isDateInRange = (dateStr: string, start: string, end: string) =>
   dateStr >= start && dateStr <= end;
 
@@ -50,6 +55,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
   canEdit = true,
 }) => {
   const [title, setTitle] = useState('');
+  const [selectedSticker, setSelectedSticker] = useState<string>('🎉');
   const [description, setDescription] = useState('');
   const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [eventType, setEventType] = useState<
@@ -119,10 +125,15 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
     e.preventDefault();
     if (!title.trim() || !eventDate) return;
 
+    const cleanTitle = title.trim();
+    const finalTitle = selectedSticker && !cleanTitle.startsWith(selectedSticker)
+      ? `${selectedSticker} ${cleanTitle}`
+      : cleanTitle;
+
     setLoading(true);
     try {
       await pedagogicalService.addSchoolEvent({
-        title: title.trim(),
+        title: finalTitle,
         description: description.trim() || undefined,
         event_date: eventDate,
         event_type: eventType,
@@ -196,6 +207,18 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
     const isYearEndRecess = isDateInRange(dateStr, '2026-12-28', '2026-12-31');
     const isCarnaval = isDateInRange(dateStr, '2026-02-16', '2026-02-18');
 
+    const isBimStart = dayEvents.some((e) => /in[íi]cio do \dº bimestre/i.test(e.title));
+    const isBimEnd = dayEvents.some((e) => /t[ée]rmino do \dº bimestre/i.test(e.title));
+    const isPlanejamento = dayEvents.some((e) => /planejamento|jornada pedag[óo]gica/i.test(e.title));
+
+    // Verifica se algum evento personalizado começa com figurinha/emoji
+    const customStickerEvent = dayEvents.find(
+      (e) => !isSemedOfficialEvent(e.id) && /^\p{Extended_Pictographic}/u.test(e.title.trim())
+    );
+    const customEmoji = customStickerEvent
+      ? Array.from(customStickerEvent.title.trim())[0]
+      : null;
+
     const hasHoliday = dayEvents.some((e) => e.event_type === 'feriado');
     const hasConselho = dayEvents.some((e) => e.event_type === 'conselho');
     const hasProva = dayEvents.some((e) => e.event_type === 'prova');
@@ -204,34 +227,60 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
       (e) => e.event_type === 'evento' || e.event_type === 'reuniao'
     );
 
+    if (isBimStart) {
+      return {
+        cell: 'bg-indigo-100 text-indigo-950 border-indigo-500 ring-1 ring-indigo-400 font-black shadow-2xs',
+        dot: 'bg-indigo-600',
+        emoji: customEmoji || '🚩',
+      };
+    }
+    if (isBimEnd) {
+      return {
+        cell: 'bg-violet-100 text-violet-950 border-violet-500 ring-1 ring-violet-400 font-black shadow-2xs',
+        dot: 'bg-violet-600',
+        emoji: customEmoji || '🏁',
+      };
+    }
+    if (isPlanejamento) {
+      return {
+        cell: 'bg-teal-100 text-teal-950 border-teal-500 ring-1 ring-teal-400 font-black shadow-2xs',
+        dot: 'bg-teal-600',
+        emoji: customEmoji || '📝',
+      };
+    }
     if (isVacation || isMidYearRecess || isYearEndRecess || isCarnaval || hasHoliday) {
       return {
         cell: 'bg-rose-100 text-rose-800 border-rose-300 font-extrabold',
         dot: 'bg-rose-600',
+        emoji: customEmoji || (isCarnaval ? '🎭' : hasHoliday ? '☀️' : undefined),
       };
     }
     if (hasConselho) {
       return {
         cell: 'bg-purple-100 text-purple-900 border-purple-300 font-extrabold',
         dot: 'bg-purple-600',
+        emoji: customEmoji || '🏛️',
       };
     }
     if (hasProva) {
       return {
         cell: 'bg-amber-100 text-amber-900 border-amber-300 font-extrabold',
         dot: 'bg-amber-600',
+        emoji: customEmoji || '📚',
       };
     }
     if (hasPedagogico) {
       return {
         cell: 'bg-emerald-100 text-emerald-900 border-emerald-300 font-extrabold',
         dot: 'bg-emerald-600',
+        emoji: customEmoji || undefined,
       };
     }
     if (hasEvento) {
       return {
         cell: 'bg-sky-100 text-sky-900 border-sky-300 font-extrabold',
         dot: 'bg-sky-600',
+        emoji: customEmoji || '🎉',
       };
     }
     return null;
@@ -420,6 +469,32 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                 </div>
               </div>
 
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-semibold text-slate-700">
+                  Figurinha / Emoticon (opcional)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SCHOOL_STICKERS.map((stk) => {
+                    const isActive = selectedSticker === stk;
+                    return (
+                      <button
+                        key={stk}
+                        type="button"
+                        onClick={() => setSelectedSticker((prev) => (prev === stk ? '' : stk))}
+                        className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition ${
+                          isActive
+                            ? 'bg-blue-600 border-blue-600 scale-110 shadow-sm'
+                            : 'bg-white border-slate-200 hover:border-blue-300 hover:scale-105'
+                        }`}
+                        title={`Usar figurinha ${stk}`}
+                      >
+                        {stk}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex justify-end">
                 <button
                   type="submit"
@@ -439,17 +514,20 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
               {/* Legenda compacta */}
               <div className="flex flex-wrap items-center gap-2 text-[11px] bg-slate-50 px-3 py-2 rounded-xl border border-slate-200">
                 <span className="font-extrabold text-slate-700 mr-1">Legenda:</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-rose-600" /> Feriados / Férias / Recessos
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-950 border border-indigo-300 font-extrabold">
+                  🚩 Início de Bimestre
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600" /> Bimestres / Planejamentos / Notas
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-950 border border-violet-300 font-extrabold">
+                  🏁 Fim de Bimestre
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-100 text-teal-950 border border-teal-300 font-extrabold">
+                  📝 Planejamento
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-amber-600" /> Avaliações (Av1/Av2/Av3/ADE)
+                  📚 Avaliações / ADE
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-900 font-bold">
-                  <span className="w-2 h-2 rounded-full bg-purple-600" /> Conselho de Classe
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold">
+                  ☀️ Feriados / Férias / Recessos
                 </span>
               </div>
 
@@ -579,14 +657,16 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                                     : 'text-slate-700 hover:bg-slate-100'
                                 }`}
                               >
-                                <span className="leading-none">{c.day}</span>
-                                {dayEvs.length > 0 && (
+                                <span className="leading-none text-[10px]">{c.day}</span>
+                                {style?.emoji ? (
+                                  <span className="text-[9px] leading-none mt-0.5">{style.emoji}</span>
+                                ) : dayEvs.length > 0 ? (
                                   <span
                                     className={`w-1 h-1 rounded-full mt-0.5 ${
                                       style?.dot || 'bg-emerald-600'
                                     }`}
                                   />
-                                )}
+                                ) : null}
                               </button>
                             );
                           })}
@@ -675,7 +755,10 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                           : 'border-slate-200 hover:border-emerald-400'
                       } ${style ? style.cell : 'bg-white'}`}
                     >
-                      <span className="text-xs font-extrabold">{c.day}</span>
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-extrabold">{c.day}</span>
+                        {style?.emoji && <span className="text-xs leading-none">{style.emoji}</span>}
+                      </div>
                       <div className="space-y-0.5 w-full">
                         {dayEvs.slice(0, 2).map((ev) => (
                           <span
