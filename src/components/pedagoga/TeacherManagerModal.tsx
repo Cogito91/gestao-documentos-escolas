@@ -18,7 +18,9 @@ import {
   Moon,
   RefreshCw,
   Search,
-  Calendar
+  Calendar,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { Profile, TeacherSchedule } from '../../types/database.types';
 import { authService } from '../../services/authService';
@@ -44,9 +46,14 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
   const [activeTab, setActiveTab] = useState<'create' | 'schedules'>('schedules');
   const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(initialTeacher || (teachers[0] || null));
   const [showEditProfileCard, setShowEditProfileCard] = useState(false);
+  const [isScheduleEditUnlocked, setIsScheduleEditUnlocked] = useState(false);
   const [schedules, setSchedules] = useState<TeacherSchedule[]>([]);
   const [regentsMap, setRegentsMap] = useState<Record<string, { teacherId: string; teacherName: string }>>({});
   const [savingRegent, setSavingRegent] = useState(false);
+
+  useEffect(() => {
+    setIsScheduleEditUnlocked(false);
+  }, [selectedTeacher?.id, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -440,6 +447,9 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
 
   const handleToggleCellSchedule = async (dayId: number, periodNum: number) => {
     if (!selectedTeacher) return;
+    if (!isScheduleEditUnlocked) {
+      return;
+    }
     const existing = schedules.find(s => s.day_of_week === dayId && s.period === periodNum);
     const pInfo = currentPeriods.find(p => p.period === periodNum);
     if (!pInfo) return;
@@ -874,15 +884,42 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
 
               {/* TABELA DE HORÁRIO INTERATIVA: 5 TEMPOS DE SEGUNDA A SEXTA */}
               {selectedTeacher && (
-                <div className="bg-white p-4 rounded-2xl border border-blue-200 shadow-sm space-y-3">
-                  <div className="border-b border-slate-100 pb-2">
-                    <h4 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
-                      <Clock className="w-4 h-4 text-indigo-600" />
-                      <span>Tabela de Horário Semanal Interativa (Clique para Lançar/Remover)</span>
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      Selecione o turno correspondente e clique na célula para preencher ou remover os horários.
-                    </p>
+                <div className={`bg-white p-4 rounded-2xl border shadow-sm space-y-3 transition ${
+                  isScheduleEditUnlocked ? 'border-amber-400 ring-2 ring-amber-100' : 'border-blue-200'
+                }`}>
+                  <div className="border-b border-slate-100 pb-2 flex items-start justify-between gap-2 flex-wrap">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-800 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-indigo-600" />
+                        <span>Tabela de Horário Semanal</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        {isScheduleEditUnlocked
+                          ? 'Edição liberada: toque em uma célula para lançar ou remover a turma.'
+                          : 'Quadro travado para evitar alterações acidentais. Libere o cadeado para editar.'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsScheduleEditUnlocked((prev) => !prev)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition flex items-center gap-1.5 shrink-0 ${
+                        isScheduleEditUnlocked
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500 shadow-xs'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      {isScheduleEditUnlocked ? (
+                        <>
+                          <Unlock className="w-3.5 h-3.5" />
+                          <span>Edição Liberada • Travar</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-3.5 h-3.5" />
+                          <span>Travado • Liberar edição</span>
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {/* SELEÇÃO DO TURNO E DA TURMA (SELETOR COMPLETO REGULAR E EJA) */}
