@@ -56,6 +56,28 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
       .catch(() => {});
   }, [isOpen]);
 
+  const getTeacherRegentTurmas = (teacher: Profile | null): string[] => {
+    if (!teacher) return [];
+    const normName = (teacher.full_name || '').trim().toLowerCase();
+    return Object.entries(regentsMap)
+      .filter(
+        ([, reg]) =>
+          reg.teacherId === teacher.id ||
+          (normName && (reg.teacherName || '').trim().toLowerCase() === normName)
+      )
+      .map(([turma]) => turma);
+  };
+
+  const selectedTeacherRegentTurmas = getTeacherRegentTurmas(selectedTeacher);
+
+  useEffect(() => {
+    if (!selectedTeacher) return;
+    const regentTurmas = getTeacherRegentTurmas(selectedTeacher);
+    if (regentTurmas.length > 0) {
+      setSelectedTurmaForGrid(regentTurmas[0]);
+    }
+  }, [selectedTeacher?.id, regentsMap]);
+
   // Referência do input de arquivo para acionamento garantido
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -710,13 +732,32 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
               {selectedTeacher && (
                 <div className="space-y-2.5">
                   <div className="bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-200 shadow-2xs flex items-center justify-between gap-2 flex-wrap">
-                    <div className="min-w-0">
+                    <div className="min-w-0 space-y-1">
                       <span className="text-xs font-extrabold text-slate-900 block truncate">
                         {selectedTeacher.full_name}
                       </span>
-                      <span className="text-[11px] font-semibold text-indigo-700">
-                        {selectedTeacher.discipline || 'Sem disciplina'} • {selectedTeacher.shift || 'Turno Geral'}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-semibold text-indigo-700">
+                          {selectedTeacher.discipline || 'Sem disciplina'} • {selectedTeacher.shift || 'Turno Geral'}
+                        </span>
+                        {selectedTeacherRegentTurmas.length > 0 ? (
+                          selectedTeacherRegentTurmas.map((turmaName) => (
+                            <button
+                              key={turmaName}
+                              type="button"
+                              onClick={() => setSelectedTurmaForGrid(turmaName)}
+                              className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-extrabold hover:bg-emerald-200 transition"
+                              title="Clique para selecionar esta turma"
+                            >
+                              Regente: {turmaName}
+                            </button>
+                          ))
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                            Sem turma regente
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -935,6 +976,7 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                         const currentRegent = regentsMap[selectedTurmaForGrid];
                         const isThisTeacherRegent = currentRegent?.teacherId === selectedTeacher.id;
                         return (
+                          <>
                           <button
                             type="button"
                             disabled={savingRegent}
@@ -972,6 +1014,12 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                               ? '✓ Regente'
                               : 'Definir Regente'}
                           </button>
+                          {!isThisTeacherRegent && currentRegent && (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                              Atual: {currentRegent.teacherName}
+                            </span>
+                          )}
+                          </>
                         );
                       })()}
                     </div>
