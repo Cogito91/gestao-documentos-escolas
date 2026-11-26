@@ -24,6 +24,7 @@ import { Profile, TeacherSchedule } from '../../types/database.types';
 import { authService } from '../../services/authService';
 import { pedagogicalService } from '../../services/pedagogicalService';
 import { storageService } from '../../services/storageService';
+import { classroomService } from '../../services/classroomService';
 
 interface TeacherManagerModalProps {
   isOpen: boolean;
@@ -44,6 +45,16 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
   const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(initialTeacher || (teachers[0] || null));
   const [showEditProfileCard, setShowEditProfileCard] = useState(false);
   const [schedules, setSchedules] = useState<TeacherSchedule[]>([]);
+  const [regentsMap, setRegentsMap] = useState<Record<string, { teacherId: string; teacherName: string }>>({});
+  const [savingRegent, setSavingRegent] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    classroomService
+      .fetchConfig()
+      .then((cfg) => setRegentsMap(cfg.regents || {}))
+      .catch(() => {});
+  }, [isOpen]);
 
   // Referência do input de arquivo para acionamento garantido
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -867,9 +878,9 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                       </select>
                     </div>
 
-                    {/* SELETOR RÁPIDO DA TURMA PARA LANÇAR NO QUADRO */}
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-700">Turma ativa p/ preencher:</span>
+                    {/* SELETOR DE PROFESSOR REGENTE E TURMA */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-slate-700">Professor Regente:</span>
                       <select
                         value={selectedTurmaForGrid}
                         onChange={(e) => setSelectedTurmaForGrid(e.target.value)}
@@ -919,6 +930,50 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                           </>
                         )}
                       </select>
+
+                      {selectedTeacher && (() => {
+                        const currentRegent = regentsMap[selectedTurmaForGrid];
+                        const isThisTeacherRegent = currentRegent?.teacherId === selectedTeacher.id;
+                        return (
+                          <button
+                            type="button"
+                            disabled={savingRegent}
+                            onClick={async () => {
+                              setSavingRegent(true);
+                              try {
+                                const updated = isThisTeacherRegent
+                                  ? await classroomService.removeRegent(selectedTurmaForGrid)
+                                  : await classroomService.setRegent(
+                                      selectedTurmaForGrid,
+                                      selectedTeacher.id,
+                                      selectedTeacher.full_name
+                                    );
+                                setRegentsMap(updated.regents || {});
+                              } catch (err) {
+                                console.warn('Erro ao atualizar regente:', err);
+                              } finally {
+                                setSavingRegent(false);
+                              }
+                            }}
+                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold border transition shrink-0 ${
+                              isThisTeacherRegent
+                                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                : 'bg-white text-indigo-700 border-indigo-300 hover:bg-indigo-50'
+                            }`}
+                            title={
+                              isThisTeacherRegent
+                                ? `Remover ${selectedTeacher.full_name} como regente de ${selectedTurmaForGrid}`
+                                : `Definir ${selectedTeacher.full_name} como regente de ${selectedTurmaForGrid}`
+                            }
+                          >
+                            {savingRegent
+                              ? 'Salvando...'
+                              : isThisTeacherRegent
+                              ? '✓ Regente'
+                              : 'Definir Regente'}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
 
