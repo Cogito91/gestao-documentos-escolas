@@ -1972,7 +1972,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                 </div>
 
                 {/* Lista de Turmas do Dia (clicáveis) */}
-                <div className="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1">
+                <div className="p-3 sm:p-4 overflow-y-auto space-y-2 flex-1">
                   {modalSlots.length === 0 ? (
                     <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
                       <Layers className="w-8 h-8 text-slate-300 mx-auto" />
@@ -1987,10 +1987,6 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                     </div>
                   ) : (
                     <>
-                      <p className="text-[11px] font-semibold text-slate-500 px-0.5">
-                        Clique na turma para ver as anotações anteriores e lançar as atividades do dia:
-                      </p>
-
                       {modalSlots.map((slot) => {
                         const hasLog = Boolean(slot.log);
                         const prevLog = getPreviousLogForTurma(slot.turma, dayModalDate);
@@ -1999,7 +1995,7 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                           <div
                             key={slot.slotKey}
                             onClick={() => openSlotEditor(slot, dayModalDate)}
-                            className={`w-full text-left rounded-2xl border p-3.5 transition-all cursor-pointer space-y-2 shadow-2xs active:scale-[0.99] ${
+                            className={`w-full text-left rounded-xl border p-2.5 transition-all cursor-pointer space-y-1.5 shadow-2xs active:scale-[0.99] ${
                               hasLog
                                 ? isFuture
                                   ? 'bg-indigo-50/50 border-indigo-200 hover:border-indigo-400'
@@ -2008,21 +2004,22 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-900 text-white text-[11px] font-black">
-                                  <Clock className="w-3 h-3 text-emerald-300" />
+                              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-900 text-white text-[10px] font-black shrink-0">
+                                  <Clock className="w-2.5 h-2.5 text-emerald-300" />
                                   <span>{formatPeriodLabel(slot.period, hasMultipleShifts)}</span>
                                 </span>
-                                <span className="px-2.5 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-200 text-xs font-extrabold">
+                                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-200 text-[11px] font-extrabold shrink-0">
                                   {slot.turma}
                                 </span>
-                                <span className="text-[11px] font-semibold text-slate-500">
-                                  {slot.subject}
-                                  {slot.timeSlot ? ` • ${slot.timeSlot}` : ''}
-                                </span>
+                                {slot.timeSlot && (
+                                  <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">
+                                    {slot.timeSlot}
+                                  </span>
+                                )}
                               </div>
 
-                              <div className="flex items-center gap-1.5 shrink-0">
+                              <div className="flex items-center gap-1 shrink-0">
                                 {hasLog ? (
                                   <span
                                     className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
@@ -2039,16 +2036,16 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                                     Lançar
                                   </span>
                                 )}
-                                <ArrowRight className="w-4 h-4 text-slate-400" />
+                                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                               </div>
                             </div>
 
                             {slot.log?.activitiesToday ? (
-                              <p className="text-xs text-slate-700 bg-white/80 rounded-xl px-2.5 py-2 border border-slate-200/70 line-clamp-2">
+                              <p className="text-[11px] leading-snug text-slate-700 bg-white/80 rounded-lg px-2.5 py-1.5 border border-slate-200/70 line-clamp-2">
                                 {slot.log.activitiesToday}
                               </p>
                             ) : prevLog ? (
-                              <p className="text-[11px] text-amber-800 bg-amber-50/80 rounded-xl px-2.5 py-1.5 border border-amber-200/70 truncate">
+                              <p className="text-[11px] leading-snug text-amber-800 bg-amber-50/80 rounded-lg px-2.5 py-1 border border-amber-200/70 truncate">
                                 <History className="w-3 h-3 inline mr-1 text-amber-600" />
                                 <strong>Última ({formatShortDateBR(prevLog.date)}):</strong>{' '}
                                 {prevLog.activitiesToday || prevLog.nextLessonPlan || 'Ver anotações'}
