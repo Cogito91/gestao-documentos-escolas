@@ -68,7 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
-    {simulationMode && (
+    {simulationMode ? (
       <div className="bg-emerald-900 text-emerald-50 px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 flex-wrap">
         <span className="font-bold">
           Modo Simulação: {simulationMode === 'pedagoga' ? 'Pedagoga (18 Profs Manhã/Tarde)' : 'Prof. de Inglês — Manhã (1º Bim 100%)'}
@@ -90,7 +90,20 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </div>
       </div>
-    )}
+    ) : isPedagoga ? (
+      <div className="bg-slate-900 text-slate-100 px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 flex-wrap">
+        <span className="font-semibold text-slate-300">
+          Ambiente real ativo (mostrando apenas cadastros reais do banco).
+        </span>
+        <button
+          type="button"
+          onClick={() => enterSimulation('pedagoga')}
+          className="px-2.5 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold transition shrink-0"
+        >
+          Ativar Simulação (18 Profs Manhã/Tarde)
+        </button>
+      </div>
+    ) : null}
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
       <div className="px-3">
         <div className="flex justify-between h-14 items-center gap-2">

@@ -7,6 +7,7 @@ import {
 } from '../types/database.types';
 import { encodeCategoryDescription, normalizeCategory } from '../lib/utils';
 import { SEMED_MANAUS_2026_EVENTS } from '../data/semedCalendar2026';
+import { buildSimulatedSchedules } from '../data/simulatedSchoolData';
 
 export const pedagogicalService = {
   // ================= CATEGORIAS E PRAZOS =================
@@ -104,6 +105,9 @@ export const pedagogicalService = {
 
   // ================= HORÁRIOS DE AULA =================
   async getTeacherSchedules(teacherId?: string): Promise<TeacherSchedule[]> {
+    if (teacherId && teacherId.startsWith('sim-')) {
+      return buildSimulatedSchedules().filter((s) => s.teacher_id === teacherId);
+    }
     try {
       let query = supabase.from('teacher_schedules').select('*').order('period', { ascending: true });
       if (teacherId) {
