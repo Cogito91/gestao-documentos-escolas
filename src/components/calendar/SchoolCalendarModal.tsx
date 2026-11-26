@@ -292,7 +292,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
 
           <div className="flex items-center gap-2">
             <a
-              href="https://www.manaus.am.gov.br/semed/calendario-escolar/"
+              href="https://www.manaus.am.gov.br/semed/wp-content/uploads/sites/3/2025/12/Ensino-Fundamental-2026.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="px-2.5 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[11px] font-bold transition"
@@ -433,7 +433,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                       }}
                       className="text-[11px] font-extrabold text-blue-700 hover:underline"
                     >
-                      + Adicionar evento neste dia
+                      + Adicionar evento da escola neste dia
                     </button>
                   )}
                 </div>
@@ -443,27 +443,44 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                   </p>
                 ) : (
                   <div className="space-y-1.5">
-                    {selectedDayEvents.map((ev) => (
-                      <div
-                        key={ev.id}
-                        className="p-2 rounded-lg bg-white border border-emerald-200/80 flex items-center justify-between gap-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-xs font-extrabold text-slate-900">{ev.title}</span>
-                            {getTypeBadge(ev.event_type)}
-                            {isSemedOfficialEvent(ev.id) && (
-                              <span className="bg-teal-100 text-teal-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
-                                SEMED
-                              </span>
+                    {selectedDayEvents.map((ev) => {
+                      const isSemed = isSemedOfficialEvent(ev.id);
+                      return (
+                        <div
+                          key={ev.id}
+                          className="p-2 rounded-lg bg-white border border-emerald-200/80 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-extrabold text-slate-900">{ev.title}</span>
+                              {getTypeBadge(ev.event_type)}
+                              {isSemed ? (
+                                <span className="bg-teal-100 text-teal-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                  SEMED
+                                </span>
+                              ) : (
+                                <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                  Escola
+                                </span>
+                              )}
+                            </div>
+                            {ev.description && (
+                              <p className="text-[11px] text-slate-600 mt-0.5">{ev.description}</p>
                             )}
                           </div>
-                          {ev.description && (
-                            <p className="text-[11px] text-slate-600 mt-0.5">{ev.description}</p>
+                          {canEdit && !isSemed && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteEvent(ev.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
+                              title="Remover evento da escola"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

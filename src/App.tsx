@@ -128,7 +128,12 @@ const MainApp: React.FC = () => {
       }
       const simDocs = [...customSimDocs, ...buildSimulatedDocuments(simCats)];
       setCategories(simCats);
-      setEvents(SEMED_MANAUS_2026_EVENTS);
+      try {
+        const mergedEvents = await pedagogicalService.getSchoolEvents();
+        setEvents(mergedEvents);
+      } catch {
+        setEvents(SEMED_MANAUS_2026_EVENTS);
+      }
       setBirthdays([]);
       setNotifications([]);
       setUnreadMessagesCount(0);

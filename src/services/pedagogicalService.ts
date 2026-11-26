@@ -228,7 +228,16 @@ export const pedagogicalService = {
 
   // ================= CALENDÁRIO ESCOLAR =================
   async getSchoolEvents(): Promise<SchoolEvent[]> {
-    let customEvents: SchoolEvent[] = [];
+    const LOCAL_EV_KEY = 'local_school_events_v1';
+    let supabaseEvents: SchoolEvent[] = [];
+    let localEvents: SchoolEvent[] = [];
+
+    try {
+      localEvents = JSON.parse(localStorage.getItem(LOCAL_EV_KEY) || '[]');
+    } catch {
+      localEvents = [];
+    }
+
     try {
       const { data, error } = await supabase
         .from('school_events')
@@ -238,38 +247,72 @@ export const pedagogicalService = {
       if (error) {
         console.warn('Tabela school_events não inicializada ainda:', error.message);
       } else {
-        customEvents = (data || []) as SchoolEvent[];
+        supabaseEvents = (data || []) as SchoolEvent[];
       }
     } catch (err) {
-      console.warn('Usando apenas calendário oficial SEMED offline:', err);
+      console.warn('Usando calendário local + oficial SEMED offline:', err);
     }
 
-    // Mescla eventos da escola com o Calendário Oficial SEMED Manaus 2026 sem duplicar
-    const seenKeys = new Set(
-      customEvents.map((ev) => `${ev.event_date}::${ev.title.trim().toLowerCase()}`)
-    );
-    const merged: SchoolEvent[] = [
-      ...customEvents,
-      ...SEMED_MANAUS_2026_EVENTS.filter(
-        (ev) => !seenKeys.has(`${ev.event_date}::${ev.title.trim().toLowerCase()}`)
-      ),
-    ];
+    // Mescla eventos da escola (Supabase + local) com o Calendário Oficial SEMED Manaus 2026 sem duplicar
+    const customEvents = [...supabaseEvents, ...localEvents];
+    const seenKeys = new Set<string>();
+    const merged: SchoolEvent[] = [];
+
+    for (const ev of [...customEvents, ...SEMED_MANAUS_2026_EVENTS]) {
+      const key = `${ev.event_date}::${ev.title.trim().toLowerCase()}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        merged.push(ev);
+      }
+    }
 
     return merged.sort((a, b) => a.event_date.localeCompare(b.event_date));
   },
 
   async addSchoolEvent(event: Omit<SchoolEvent, 'id' | 'created_at'>): Promise<SchoolEvent> {
-    const { data, error } = await supabase
-      .from('school_events')
-      .insert(event)
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('school_events')
+        .insert(event)
+        .select()
+        .single();
 
-    if (error) throw error;
-    return data as SchoolEvent;
+      if (error) throw error;
+      return data as SchoolEvent;
+    } catch (err: any) {
+      console.warn('Salvando evento da escola localmente:', err?.message);
+      const LOCAL_EV_KEY = 'local_school_events_v1';
+      const newEv: SchoolEvent = {
+        ...event,
+        id: `local-ev-${Date.now()}`,
+        created_at: new Date().toISOString(),
+      };
+      try {
+        const list: SchoolEvent[] = JSON.parse(localStorage.getItem(LOCAL_EV_KEY) || '[]');
+        list.push(newEv);
+        localStorage.setItem(LOCAL_EV_KEY, JSON.stringify(list));
+      } catch {
+        // ignore
+      }
+      return newEv;
+    }
   },
 
   async deleteSchoolEvent(id: string): Promise<void> {
+    if (id.startsWith('local-ev-')) {
+      const LOCAL_EV_KEY = 'local_school_events_v1';
+      try {
+        const list: SchoolEvent[] = JSON.parse(localStorage.getItem(LOCAL_EV_KEY) || '[]');
+        localStorage.setItem(
+          LOCAL_EV_KEY,
+          JSON.stringify(list.filter((e) => e.id !== id))
+        );
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     const { error } = await supabase
       .from('school_events')
       .delete()
