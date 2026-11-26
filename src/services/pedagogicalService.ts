@@ -106,7 +106,20 @@ export const pedagogicalService = {
   // ================= HORÁRIOS DE AULA =================
   async getTeacherSchedules(teacherId?: string): Promise<TeacherSchedule[]> {
     if (teacherId && teacherId.startsWith('sim-')) {
-      return buildSimulatedSchedules().filter((s) => s.teacher_id === teacherId);
+      const SIM_KEY = 'sim_teacher_schedules_v1';
+      let list: TeacherSchedule[] = [];
+      try {
+        const stored = localStorage.getItem(SIM_KEY);
+        if (stored) {
+          list = JSON.parse(stored);
+        } else {
+          list = buildSimulatedSchedules();
+          localStorage.setItem(SIM_KEY, JSON.stringify(list));
+        }
+      } catch {
+        list = buildSimulatedSchedules();
+      }
+      return list.filter((s) => s.teacher_id === teacherId);
     }
     try {
       let query = supabase.from('teacher_schedules').select('*').order('period', { ascending: true });
@@ -128,6 +141,33 @@ export const pedagogicalService = {
   },
 
   async addTeacherSchedule(schedule: Omit<TeacherSchedule, 'id' | 'created_at'>): Promise<TeacherSchedule> {
+    if (schedule.teacher_id && schedule.teacher_id.startsWith('sim-')) {
+      const SIM_KEY = 'sim_teacher_schedules_v1';
+      let list: TeacherSchedule[] = [];
+      try {
+        const stored = localStorage.getItem(SIM_KEY);
+        list = stored ? JSON.parse(stored) : buildSimulatedSchedules();
+      } catch {
+        list = buildSimulatedSchedules();
+      }
+      const newSchedule: TeacherSchedule = {
+        ...schedule,
+        id: `sim-sch-${schedule.teacher_id}-${schedule.day_of_week}-${schedule.period}-${Date.now()}`,
+        created_at: new Date().toISOString(),
+      };
+      const filtered = list.filter(
+        (s) =>
+          !(
+            s.teacher_id === schedule.teacher_id &&
+            s.day_of_week === schedule.day_of_week &&
+            s.period === schedule.period
+          )
+      );
+      filtered.push(newSchedule);
+      localStorage.setItem(SIM_KEY, JSON.stringify(filtered));
+      return newSchedule;
+    }
+
     try {
       const { data, error } = await supabase
         .from('teacher_schedules')
@@ -155,6 +195,19 @@ export const pedagogicalService = {
   },
 
   async deleteTeacherSchedule(id: string): Promise<void> {
+    if (id.startsWith('sim-sch-')) {
+      const SIM_KEY = 'sim_teacher_schedules_v1';
+      try {
+        const stored = localStorage.getItem(SIM_KEY);
+        const list: TeacherSchedule[] = stored ? JSON.parse(stored) : buildSimulatedSchedules();
+        const filtered = list.filter((s) => s.id !== id);
+        localStorage.setItem(SIM_KEY, JSON.stringify(filtered));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('teacher_schedules')
