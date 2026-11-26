@@ -214,6 +214,9 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
   const [formPeriod, setFormPeriod] = useState<number>(1);
   const [formSubject, setFormSubject] = useState('');
   const [draftRestored, setDraftRestored] = useState(false);
+  const [showClassworkField, setShowClassworkField] = useState(false);
+  const [showHomeworkField, setShowHomeworkField] = useState(false);
+  const [showNextLessonField, setShowNextLessonField] = useState(false);
 
   // Estado do Modal de Clonar / Reaproveitar Aula para outra turma
   const [cloneSource, setCloneSource] = useState<{
@@ -977,6 +980,9 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
           setFormClasswork(parsed.classwork || '');
           setFormHomework(parsed.homework || '');
           setFormNextLesson(parsed.nextLessonPlan || '');
+          setShowClassworkField(Boolean((parsed.classwork || '').trim()));
+          setShowHomeworkField(Boolean((parsed.homework || '').trim()));
+          setShowNextLessonField(Boolean((parsed.nextLessonPlan || '').trim()));
           restored = true;
         }
       }
@@ -989,6 +995,9 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
       setFormClasswork(existing?.classwork || '');
       setFormHomework(existing?.homework || '');
       setFormNextLesson(existing?.nextLessonPlan || '');
+      setShowClassworkField(Boolean((existing?.classwork || '').trim()));
+      setShowHomeworkField(Boolean((existing?.homework || '').trim()));
+      setShowNextLessonField(Boolean((existing?.nextLessonPlan || '').trim()));
     }
     setDraftRestored(restored);
   };
@@ -1014,6 +1023,9 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
     setFormClasswork('');
     setFormHomework('');
     setFormNextLesson('');
+    setShowClassworkField(false);
+    setShowHomeworkField(false);
+    setShowNextLessonField(false);
     setDraftRestored(false);
   };
 
@@ -2216,77 +2228,149 @@ export const DiarioDeBordoModal: React.FC<DiarioDeBordoModalProps> = ({
                   />
                 </div>
 
-                {/* 2. Tarefa de Sala */}
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                      <ClipboardList className="w-4 h-4 text-teal-600 shrink-0" />
-                      <span>
-                        Tarefa de Sala <span className="text-xs text-slate-400 font-medium">(opcional)</span>
-                      </span>
-                    </label>
-                    <VoiceDictationButton
-                      onTranscript={(spoken) =>
-                        setFormClasswork((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
-                      }
-                    />
+                {/* Botões compactos para adicionar campos opcionais apenas se o professor precisar */}
+                {(!showClassworkField || !showHomeworkField || !showNextLessonField) && (
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    {!showClassworkField && (
+                      <button
+                        type="button"
+                        onClick={() => setShowClassworkField(true)}
+                        className="px-2.5 py-1 rounded-lg bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold transition flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Tarefa de Sala</span>
+                      </button>
+                    )}
+                    {!showHomeworkField && (
+                      <button
+                        type="button"
+                        onClick={() => setShowHomeworkField(true)}
+                        className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 text-[11px] font-bold transition flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Tarefa de Casa</span>
+                      </button>
+                    )}
+                    {!showNextLessonField && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNextLessonField(true)}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-[11px] font-bold transition flex items-center gap-1"
+                      >
+                        <Plus className="w-3 h-3" />
+                        <span>Para a próxima aula</span>
+                      </button>
+                    )}
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Ex: Exercícios 1 a 5 da página 35"
-                    value={formClasswork}
-                    onChange={(e) => setFormClasswork(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-normal text-slate-700"
-                  />
-                </div>
+                )}
 
-                {/* 3. Tarefa de Casa */}
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-                      <Home className="w-4 h-4 text-sky-600 shrink-0" />
-                      <span>
-                        Tarefa de Casa <span className="text-xs text-slate-400 font-medium">(opcional)</span>
-                      </span>
-                    </label>
-                    <VoiceDictationButton
-                      onTranscript={(spoken) =>
-                        setFormHomework((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
-                      }
+                {/* 2. Tarefa de Sala (sob demanda) */}
+                {showClassworkField && (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                        <ClipboardList className="w-4 h-4 text-teal-600 shrink-0" />
+                        <span>Tarefa de Sala</span>
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <VoiceDictationButton
+                          onTranscript={(spoken) =>
+                            setFormClasswork((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                          }
+                        />
+                        {!formClasswork.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setShowClassworkField(false)}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                            title="Ocultar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Ex: Exercícios 1 a 5 da página 35"
+                      value={formClasswork}
+                      onChange={(e) => setFormClasswork(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-normal text-slate-700"
                     />
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Ex: Questões 6 e 7 para a próxima aula"
-                    value={formHomework}
-                    onChange={(e) => setFormHomework(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-normal text-slate-700"
-                  />
-                </div>
+                )}
 
-                {/* 4. Planejamento para a Próxima Aula */}
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="text-sm font-extrabold text-indigo-900 flex items-center gap-1.5">
-                      <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
-                      <span>
-                        Para a próxima aula <span className="text-xs text-indigo-400 font-medium">(opcional)</span>
-                      </span>
-                    </label>
-                    <VoiceDictationButton
-                      onTranscript={(spoken) =>
-                        setFormNextLesson((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
-                      }
+                {/* 3. Tarefa de Casa (sob demanda) */}
+                {showHomeworkField && (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <label className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                        <Home className="w-4 h-4 text-sky-600 shrink-0" />
+                        <span>Tarefa de Casa</span>
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <VoiceDictationButton
+                          onTranscript={(spoken) =>
+                            setFormHomework((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                          }
+                        />
+                        {!formHomework.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setShowHomeworkField(false)}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                            title="Ocultar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Ex: Questões 6 e 7 para a próxima aula"
+                      value={formHomework}
+                      onChange={(e) => setFormHomework(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-normal text-slate-700"
                     />
                   </div>
-                  <textarea
-                    rows={2}
-                    placeholder="Ex: Corrigir a tarefa de casa e aplicar atividade avaliativa..."
-                    value={formNextLesson}
-                    onChange={(e) => setFormNextLesson(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-indigo-200 bg-indigo-50/30 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-normal text-slate-700"
-                  />
-                </div>
+                )}
+
+                {/* 4. Planejamento para a Próxima Aula (sob demanda) */}
+                {showNextLessonField && (
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <label className="text-sm font-extrabold text-indigo-900 flex items-center gap-1.5">
+                        <Compass className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span>Para a próxima aula</span>
+                      </label>
+                      <div className="flex items-center gap-1.5">
+                        <VoiceDictationButton
+                          onTranscript={(spoken) =>
+                            setFormNextLesson((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                          }
+                        />
+                        {!formNextLesson.trim() && (
+                          <button
+                            type="button"
+                            onClick={() => setShowNextLessonField(false)}
+                            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                            title="Ocultar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <textarea
+                      rows={2}
+                      placeholder="Ex: Corrigir a tarefa de casa e aplicar atividade avaliativa..."
+                      value={formNextLesson}
+                      onChange={(e) => setFormNextLesson(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-indigo-200 bg-indigo-50/30 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none font-normal text-slate-700"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 flex-wrap">
                   <div className="flex items-center gap-1.5 flex-wrap">
