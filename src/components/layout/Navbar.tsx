@@ -48,7 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onMarkNotificationAsRead,
   onMarkAllNotificationsAsRead,
 }) => {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, simulationMode, enterSimulation } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
@@ -68,6 +68,29 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <>
+    {simulationMode && (
+      <div className="bg-emerald-900 text-emerald-50 px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 flex-wrap">
+        <span className="font-bold">
+          Modo Simulação: {simulationMode === 'pedagoga' ? 'Pedagoga (18 Profs Manhã/Tarde)' : 'Prof. de Inglês — Manhã (1º Bim 100%)'}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => enterSimulation(simulationMode === 'pedagoga' ? 'ingles_manha' : 'pedagoga')}
+            className="px-2 py-0.5 rounded-md bg-white text-emerald-900 font-extrabold hover:bg-emerald-100 transition"
+          >
+            {simulationMode === 'pedagoga' ? 'Ir para Prof. Inglês (1º Bim)' : 'Ir para Pedagoga (18 Profs)'}
+          </button>
+          <button
+            type="button"
+            onClick={signOut}
+            className="px-2 py-0.5 rounded-md bg-emerald-800 hover:bg-emerald-700 text-white font-bold transition"
+          >
+            Sair
+          </button>
+        </div>
+      </div>
+    )}
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200 shadow-sm">
       <div className="px-3">
         <div className="flex justify-between h-14 items-center gap-2">

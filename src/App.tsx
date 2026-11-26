@@ -29,10 +29,18 @@ import { messageService } from './services/messageService';
 import { pedagogicalService } from './services/pedagogicalService';
 import { CurriculumViewModal } from './components/curriculum/CurriculumViewModal';
 import { PwaStatusBar } from './components/common/PwaStatusBar';
+import {
+  SIMULATED_CATEGORIES,
+  SIMULATED_TEACHERS,
+  buildSimulatedDocuments,
+  buildSimulatedSchedules,
+  buildEnglish1BimDailyLogs,
+} from './data/simulatedSchoolData';
+import { SEMED_MANAUS_2026_EVENTS } from './data/semedCalendar2026';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const MainApp: React.FC = () => {
-  const { user, profile, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading, simulationMode } = useAuth();
 
   const [documents, setDocuments] = useState<SchoolDocument[]>([]);
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
@@ -108,6 +116,44 @@ const MainApp: React.FC = () => {
       setLoadingData(true);
     }
     setDbStatusWarning(null);
+
+    if (simulationMode) {
+      const simCats = SIMULATED_CATEGORIES;
+      const simSchedules = buildSimulatedSchedules();
+      const simDocs = buildSimulatedDocuments(simCats);
+      setCategories(simCats);
+      setEvents(SEMED_MANAUS_2026_EVENTS);
+      setBirthdays([]);
+      setNotifications([]);
+      setUnreadMessagesCount(0);
+
+      if (simulationMode === 'pedagoga') {
+        setTeachers(SIMULATED_TEACHERS);
+        setDocuments(simDocs);
+      } else {
+        setDocuments(simDocs.filter((d) => d.teacher_id === user.id));
+        setSchedules(simSchedules.filter((s) => s.teacher_id === user.id));
+        setFolders([]);
+
+        // Garante que o 1º bimestre do Prof. de Inglês esteja 100% lançado no Diário de Bordo
+        try {
+          const existingLogs = JSON.parse(localStorage.getItem('teacher_daily_logs') || '[]');
+          const englishLogs = buildEnglish1BimDailyLogs(simSchedules);
+          const existingIds = new Set(existingLogs.map((l: any) => l.id));
+          const mergedLogs = [
+            ...existingLogs,
+            ...englishLogs.filter((l) => !existingIds.has(l.id)),
+          ];
+          localStorage.setItem('teacher_daily_logs', JSON.stringify(mergedLogs));
+        } catch {
+          // ignore
+        }
+      }
+
+      hasLoadedOnceRef.current = true;
+      setLoadingData(false);
+      return;
+    }
 
     try {
       // 1. Carrega categorias

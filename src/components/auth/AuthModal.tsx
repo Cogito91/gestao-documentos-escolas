@@ -16,7 +16,7 @@ const DISCIPLINE_OPTIONS = [
 ];
 
 export const AuthModal: React.FC = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, enterSimulation } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -331,6 +331,34 @@ export const AuthModal: React.FC = () => {
                 </div>
                 <span className="text-[10px] text-blue-600/80 font-normal">Envio próprio & pendências</span>
               </button>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-dashed border-slate-200">
+              <p className="text-center text-[11px] font-bold text-emerald-700 mb-2">
+                Simulação Completa (18 Profs Manhã/Tarde + Inglês 1º Bim):
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => enterSimulation('pedagoga')}
+                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold transition text-left"
+                >
+                  <div className="font-extrabold">Simular Pedagoga</div>
+                  <div className="text-[10px] text-emerald-700/80 font-normal">
+                    9 profs Manhã + 9 profs Tarde
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => enterSimulation('ingles_manha')}
+                  className="p-2.5 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 rounded-xl text-xs font-bold transition text-left"
+                >
+                  <div className="font-extrabold">Simular Prof. Inglês</div>
+                  <div className="text-[10px] text-teal-700/80 font-normal">
+                    1º Bim 100% (aulas + docs)
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
 
