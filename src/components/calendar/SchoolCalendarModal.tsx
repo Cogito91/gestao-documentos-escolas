@@ -67,6 +67,41 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
   });
   const [showAddForm, setShowAddForm] = useState(false);
 
+  // Pop-up expansível do dia clicado (efeito FLIP: expande do quadradinho e fecha voltando para ele)
+  const [dayPopup, setDayPopup] = useState<{
+    dateStr: string;
+    originRect: { left: number; top: number; width: number; height: number };
+  } | null>(null);
+  const [popupAnimPhase, setPopupAnimPhase] = useState<'from' | 'open' | 'closing'>('from');
+
+  const openDayPopup = (dateStr: string, targetEl: HTMLElement) => {
+    const rect = targetEl.getBoundingClientRect();
+    setSelectedDayStr(dateStr);
+    setDayPopup({
+      dateStr,
+      originRect: {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      },
+    });
+    setPopupAnimPhase('from');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setPopupAnimPhase('open');
+      });
+    });
+  };
+
+  const closeDayPopup = () => {
+    if (!dayPopup) return;
+    setPopupAnimPhase('closing');
+    setTimeout(() => {
+      setDayPopup(null);
+    }, 260);
+  };
+
   const calendarYear = 2026;
 
   const eventsByDate = useMemo(() => {
@@ -526,7 +561,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                               <button
                                 key={c.dateStr}
                                 type="button"
-                                onClick={() => setSelectedDayStr(c.dateStr!)}
+                                onClick={(e) => openDayPopup(c.dateStr!, e.currentTarget)}
                                 title={
                                   dayEvs.length > 0
                                     ? dayEvs.map((e) => e.title).join(' | ')
@@ -633,7 +668,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                     <button
                       key={c.dateStr}
                       type="button"
-                      onClick={() => setSelectedDayStr(c.dateStr!)}
+                      onClick={(e) => openDayPopup(c.dateStr!, e.currentTarget)}
                       className={`min-h-[68px] p-1.5 rounded-xl border text-left flex flex-col justify-between transition ${
                         isSelected
                           ? 'ring-2 ring-indigo-600 border-indigo-600'
@@ -724,6 +759,150 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* POP-UP EXPANSÍVEL DO DIA CLICADO (ABRE DO QUADRADINHO E FECHA VOLTANDO PARA ELE) */}
+      {dayPopup && (() => {
+        const vw = typeof window !== 'undefined' ? window.innerWidth : 400;
+        const vh = typeof window !== 'undefined' ? window.innerHeight : 700;
+        const targetW = Math.min(440, vw - 24);
+        const targetH = Math.min(420, vh - 48);
+        const originCx = dayPopup.originRect.left + dayPopup.originRect.width / 2;
+        const originCy = dayPopup.originRect.top + dayPopup.originRect.height / 2;
+        const dx = originCx - vw / 2;
+        const dy = originCy - vh / 2;
+        const sx = Math.max(0.12, dayPopup.originRect.width / targetW);
+        const sy = Math.max(0.12, dayPopup.originRect.height / targetH);
+        const isCollapsed = popupAnimPhase === 'from' || popupAnimPhase === 'closing';
+        const popupEvents = eventsByDate[dayPopup.dateStr] || [];
+        const dObj = new Date(dayPopup.dateStr + 'T00:00:00');
+        const weekdayFull = dObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+
+        return (
+          <div
+            onClick={closeDayPopup}
+            className={`fixed inset-0 z-[70] flex items-center justify-center p-3 transition-colors duration-250 ${
+              isCollapsed ? 'bg-slate-950/0 backdrop-blur-none' : 'bg-slate-950/55 backdrop-blur-xs'
+            }`}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: targetW,
+                maxHeight: '82vh',
+                transform: isCollapsed
+                  ? `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`
+                  : 'translate(0px, 0px) scale(1, 1)',
+                opacity: popupAnimPhase === 'closing' ? 0 : popupAnimPhase === 'from' ? 0.5 : 1,
+                transition:
+                  'transform 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease',
+              }}
+              className="bg-white rounded-2xl shadow-2xl border border-emerald-200 overflow-hidden flex flex-col origin-center"
+            >
+              <div className="px-4 py-3 bg-gradient-to-r from-emerald-700 to-teal-700 text-white flex items-center justify-between shrink-0">
+                <div>
+                  <h4 className="font-extrabold text-sm capitalize">
+                    {weekdayFull} • {formatDateBR(dayPopup.dateStr)}
+                  </h4>
+                  <p className="text-[11px] text-emerald-100">
+                    {popupEvents.length === 0
+                      ? 'Nenhum evento marcado nesta data'
+                      : `${popupEvents.length} ${
+                          popupEvents.length === 1 ? 'evento registrado' : 'eventos registrados'
+                        }`}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeDayPopup}
+                  className="p-1.5 hover:bg-white/20 rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-4 space-y-2.5 overflow-y-auto flex-1">
+                {popupEvents.length === 0 ? (
+                  <div className="p-5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-xs text-slate-500">
+                    Dia letivo normal sem eventos especiais na SEMED ou na escola.
+                  </div>
+                ) : (
+                  popupEvents.map((ev) => {
+                    const isSemed = isSemedOfficialEvent(ev.id);
+                    return (
+                      <div
+                        key={ev.id}
+                        className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-start justify-between gap-2"
+                      >
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-extrabold text-slate-900">
+                              {ev.title}
+                            </span>
+                            {getTypeBadge(ev.event_type)}
+                            {isSemed ? (
+                              <span className="bg-teal-100 text-teal-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                SEMED 2026
+                              </span>
+                            ) : (
+                              <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-1.5 py-0.5 rounded-full">
+                                Escola
+                              </span>
+                            )}
+                          </div>
+                          {ev.description && (
+                            <p className="text-[11px] text-slate-600 leading-relaxed">
+                              {ev.description}
+                            </p>
+                          )}
+                        </div>
+                        {canEdit && !isSemed && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition shrink-0"
+                            title="Remover evento da escola"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                {canEdit ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = dayPopup.dateStr;
+                      closeDayPopup();
+                      setEventDate(d);
+                      setShowAddForm(true);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-extrabold flex items-center gap-1 transition"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Adicionar evento da escola</span>
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Sincronizado SEMED & Escola
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={closeDayPopup}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200/70 transition"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
