@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   X,
   Calendar as CalendarIcon,
@@ -9,10 +9,14 @@ import {
   ChevronRight,
   Grid,
   List,
+  Bold,
+  IndentIncrease,
+  IndentDecrease,
 } from 'lucide-react';
 import { SchoolEvent } from '../../types/database.types';
 import { pedagogicalService } from '../../services/pedagogicalService';
 import { isSemedOfficialEvent } from '../../data/semedCalendar2026';
+import { VoiceDictationButton } from '../common/VoiceDictationButton';
 
 interface SchoolCalendarModalProps {
   isOpen: boolean;
@@ -72,6 +76,42 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
     ).padStart(2, '0')}`;
   });
   const [showAddForm, setShowAddForm] = useState(false);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const execEditorCmd = (cmd: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(cmd, false, value);
+    if (editorRef.current) {
+      setDescription(editorRef.current.innerHTML);
+    }
+  };
+
+  const appendVoiceToEditor = (spoken: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    const existingText = editorRef.current.innerText.trim();
+    const toInsert = existingText ? ` ${spoken}` : spoken;
+    document.execCommand('insertText', false, toInsert);
+    setDescription(editorRef.current.innerHTML);
+  };
+
+  const renderRichDescription = (raw?: string | null) => {
+    if (!raw) return null;
+    const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+    if (!isHtml) {
+      return <p className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line">{raw}</p>;
+    }
+    const sanitized = raw
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/\son\w+="[^"]*"/gi, '')
+      .replace(/\son\w+='[^']*'/gi, '');
+    return (
+      <div
+        className="text-[11px] text-slate-700 leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_ul_ul]:list-[circle] [&_ul_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_b]:font-extrabold [&_strong]:font-extrabold"
+        dangerouslySetInnerHTML={{ __html: sanitized }}
+      />
+    );
+  };
 
   // Pop-up expansível do dia clicado (efeito FLIP: expande do quadradinho e fecha voltando para ele)
   const [dayPopup, setDayPopup] = useState<{
@@ -129,17 +169,20 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
     const finalTitle = selectedSticker && !cleanTitle.startsWith(selectedSticker)
       ? `${selectedSticker} ${cleanTitle}`
       : cleanTitle;
+    const rawHtml = editorRef.current ? editorRef.current.innerHTML : description;
+    const plainText = editorRef.current ? editorRef.current.innerText.trim() : description.trim();
 
     setLoading(true);
     try {
       await pedagogicalService.addSchoolEvent({
         title: finalTitle,
-        description: description.trim() || undefined,
+        description: plainText ? rawHtml : undefined,
         event_date: eventDate,
         event_type: eventType,
       });
       setTitle('');
       setDescription('');
+      if (editorRef.current) editorRef.current.innerHTML = '';
       setShowAddForm(false);
       onRefresh();
     } catch (err: any) {
@@ -398,115 +441,6 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
 
         {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {/* Formulário de Nova Data (sob demanda) */}
-          {canEdit && showAddForm && (
-            <form
-              onSubmit={handleAddEvent}
-              className="bg-blue-50/60 p-4 rounded-xl border border-blue-200 space-y-3"
-            >
-              <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900 flex items-center space-x-1.5">
-                <Plus className="w-4 h-4 text-blue-600" />
-                <span>Adicionar Nova Data no Calendário Escolar</span>
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Título do Evento *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Conselho de Classe 2º Bimestre"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Data *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white font-medium"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Tipo de Evento
-                  </label>
-                  <select
-                    value={eventType}
-                    onChange={(e: any) => setEventType(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
-                  >
-                    <option value="pedagogico">Pedagógico Geral</option>
-                    <option value="reuniao">Reunião de Pais/Mestres</option>
-                    <option value="conselho">Conselho de Classe</option>
-                    <option value="prova">Semana de Provas</option>
-                    <option value="feriado">Feriado / Recesso</option>
-                    <option value="evento">Evento Cultural / Festa</option>
-                  </select>
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Observações
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Não haverá aula para os alunos do turno matutino"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg bg-white"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[11px] font-semibold text-slate-700">
-                  Figurinha / Emoticon (opcional)
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {SCHOOL_STICKERS.map((stk) => {
-                    const isActive = selectedSticker === stk;
-                    return (
-                      <button
-                        key={stk}
-                        type="button"
-                        onClick={() => setSelectedSticker((prev) => (prev === stk ? '' : stk))}
-                        className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition ${
-                          isActive
-                            ? 'bg-blue-600 border-blue-600 scale-110 shadow-sm'
-                            : 'bg-white border-slate-200 hover:border-blue-300 hover:scale-105'
-                        }`}
-                        title={`Usar figurinha ${stk}`}
-                      >
-                        {stk}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg shadow-sm transition flex items-center space-x-1.5 disabled:opacity-50"
-                >
-                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>Salvar no Calendário</span>
-                </button>
-              </div>
-            </form>
-          )}
 
           {/* MODO 1: CALENDÁRIO ANUAL (12 MESES ESTILO SEMED) */}
           {viewMode === 'annual' && (
@@ -819,9 +753,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                               </span>
                             )}
                           </div>
-                          {ev.description && (
-                            <p className="text-xs text-slate-500 mt-0.5">{ev.description}</p>
-                          )}
+                          {renderRichDescription(ev.description)}
                         </div>
                       </div>
 
@@ -932,11 +864,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                               </span>
                             )}
                           </div>
-                          {ev.description && (
-                            <p className="text-[11px] text-slate-600 leading-relaxed">
-                              {ev.description}
-                            </p>
-                          )}
+                          {renderRichDescription(ev.description)}
                         </div>
                         {canEdit && !isSemed && (
                           <button
@@ -960,7 +888,7 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
                     type="button"
                     onClick={() => {
                       const d = dayPopup.dateStr;
-                      closeDayPopup();
+                      setDayPopup(null);
                       setEventDate(d);
                       setShowAddForm(true);
                     }}
@@ -986,6 +914,228 @@ export const SchoolCalendarModal: React.FC<SchoolCalendarModalProps> = ({
           </div>
         );
       })()}
+
+      {/* POP-UP MODAL PARA ADICIONAR EVENTO DA ESCOLA COM EDITOR RICO, CORES, TÓPICOS, FIGURINHAS E VOZ */}
+      {canEdit && showAddForm && (
+        <div
+          onClick={() => setShowAddForm(false)}
+          className="fixed inset-0 z-[80] flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col overflow-hidden border border-blue-200 animate-scaleIn"
+          >
+            <div className="px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                <h4 className="font-extrabold text-sm">Novo Evento da Escola</h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="p-1 hover:bg-white/20 rounded-lg transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddEvent} className="p-4 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
+              {/* Título com Ditado por Voz */}
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="text-xs font-extrabold text-slate-800">
+                    Título do Evento *
+                  </label>
+                  <VoiceDictationButton
+                    onTranscript={(spoken) =>
+                      setTitle((prev) => (prev.trim() ? `${prev.trim()} ${spoken}` : spoken))
+                    }
+                  />
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Reunião de Pais ou Festa Junina"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                    Data *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-extrabold text-slate-800 mb-1">
+                    Tipo de Evento
+                  </label>
+                  <select
+                    value={eventType}
+                    onChange={(e: any) => setEventType(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl bg-white font-semibold"
+                  >
+                    <option value="pedagogico">Pedagógico Geral</option>
+                    <option value="reuniao">Reunião de Pais/Mestres</option>
+                    <option value="conselho">Conselho de Classe</option>
+                    <option value="prova">Semana de Provas</option>
+                    <option value="feriado">Feriado / Recesso</option>
+                    <option value="evento">Evento Cultural / Festa</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Figurinhas / Emoticons */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-800">
+                  Figurinha / Emoticon (opcional)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {SCHOOL_STICKERS.map((stk) => {
+                    const isActive = selectedSticker === stk;
+                    return (
+                      <button
+                        key={stk}
+                        type="button"
+                        onClick={() => setSelectedSticker((prev) => (prev === stk ? '' : stk))}
+                        className={`w-8 h-8 rounded-lg border text-base flex items-center justify-center transition ${
+                          isActive
+                            ? 'bg-blue-600 border-blue-600 scale-110 shadow-sm'
+                            : 'bg-slate-50 border-slate-200 hover:border-blue-300 hover:scale-105'
+                        }`}
+                        title={`Usar figurinha ${stk}`}
+                      >
+                        {stk}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Editor Rico: Negrito, Tópicos, Subtópicos, Cores e Ditado por Voz */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label className="text-xs font-extrabold text-slate-800">
+                    Detalhes / Programação (opcional)
+                  </label>
+                  <VoiceDictationButton onTranscript={appendVoiceToEditor} />
+                </div>
+
+                {/* Barra de Formatação */}
+                <div className="flex items-center flex-wrap gap-1 p-1.5 bg-slate-100 border border-slate-200 rounded-t-xl">
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      execEditorCmd('bold');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 text-slate-800 text-xs font-black flex items-center gap-1"
+                    title="Negrito"
+                  >
+                    <Bold className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      execEditorCmd('insertUnorderedList');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 text-slate-800 text-[11px] font-bold flex items-center gap-1"
+                    title="Criar tópico (lista)"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>Tópico</span>
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      execEditorCmd('indent');
+                    }}
+                    className="px-2 py-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 text-slate-800 text-[11px] font-bold flex items-center gap-1"
+                    title="Transformar em subtópico (recuo)"
+                  >
+                    <IndentIncrease className="w-3.5 h-3.5" />
+                    <span>Subtópico</span>
+                  </button>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      execEditorCmd('outdent');
+                    }}
+                    className="p-1 rounded-lg bg-white hover:bg-blue-50 border border-slate-200 text-slate-700"
+                    title="Voltar nível"
+                  >
+                    <IndentDecrease className="w-3.5 h-3.5" />
+                  </button>
+
+                  <span className="h-4 w-px bg-slate-300 mx-1" />
+
+                  {/* Cores do texto */}
+                  {[
+                    { color: '#0f172a', label: 'Preto' },
+                    { color: '#2563eb', label: 'Azul' },
+                    { color: '#059669', label: 'Verde' },
+                    { color: '#dc2626', label: 'Vermelho' },
+                    { color: '#7c3aed', label: 'Roxo' },
+                    { color: '#d97706', label: 'Âmbar' },
+                  ].map((c) => (
+                    <button
+                      key={c.color}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        execEditorCmd('foreColor', c.color);
+                      }}
+                      className="w-5 h-5 rounded-full border border-white shadow-xs hover:scale-110 transition"
+                      style={{ backgroundColor: c.color }}
+                      title={`Cor: ${c.label}`}
+                    />
+                  ))}
+                </div>
+
+                {/* Área editável */}
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={(e) => setDescription(e.currentTarget.innerHTML)}
+                  data-placeholder="Escreva ou dite os detalhes, tópicos e horários..."
+                  className="min-h-[110px] max-h-48 overflow-y-auto px-3 py-2 text-xs border border-t-0 border-slate-200 rounded-b-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 [&_ul]:list-disc [&_ul]:pl-5 [&_ul_ul]:list-[circle] [&_ul_ul]:pl-5 [&_b]:font-extrabold [&_strong]:font-extrabold"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>Salvar no Calendário</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
