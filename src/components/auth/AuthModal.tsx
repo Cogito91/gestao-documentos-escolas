@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { GraduationCap, Lock, Mail, User, BookOpen, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react';
-import { UserRole } from '../../types/database.types';
+import { 
+  GraduationCap, 
+  Lock, 
+  Mail, 
+  User, 
+  BookOpen, 
+  KeyRound, 
+  ArrowRight, 
+  Loader2, 
+  ShieldCheck, 
+  Phone,
+  AlertCircle,
+  Clock,
+  Eye,
+  EyeOff
+} from 'lucide-react';
 
 const DISCIPLINE_OPTIONS = [
   'LÍNGUA PORTUGUESA',
@@ -13,94 +27,117 @@ const DISCIPLINE_OPTIONS = [
   'ARTE',
   'EDUCAÇÃO FÍSICA',
   'ENSINO RELIGIOSO',
+  'POLIVALENTE / ANOS INICIAIS',
 ];
 
 export const AuthModal: React.FC = () => {
-  const { signIn, signUp, enterSimulation } = useAuth();
+  const { signIn, signUp } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Campos do formulário
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
   const [fullName, setFullName] = useState('');
   const [discipline, setDiscipline] = useState('');
   const [phone, setPhone] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'professor' | 'pedagoga'>('professor');
-  const [pedagogaAccessKey, setPedagogaAccessKey] = useState('');
+  const [shift, setShift] = useState('Manhã');
+  const [inviteCode, setInviteCode] = useState('');
 
-  const PEDAGOGA_SECRET_CODE = 'AM@2026';
+  // Análise de força da senha
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return { score: 0, label: 'Vazia', color: 'bg-slate-200' };
+    let score = 0;
+    if (pass.length >= 8) score += 1;
+    if (/[A-Z]/.test(pass)) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+
+    switch (score) {
+      case 1:
+        return { score: 1, label: 'Fraca (mínimo 8 dígitos)', color: 'bg-rose-500' };
+      case 2:
+        return { score: 2, label: 'Média', color: 'bg-amber-500' };
+      case 3:
+        return { score: 3, label: 'Boa', color: 'bg-blue-500' };
+      case 4:
+        return { score: 4, label: 'Muito Segura', color: 'bg-emerald-500' };
+      default:
+        return { score: 0, label: 'Muito Curta', color: 'bg-rose-400' };
+    }
+  };
+
+  const passStrength = getPasswordStrength(password);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
     setLoading(true);
 
     try {
       if (isRegister) {
-        if (!fullName || !email || !password) {
-          throw new Error('Preencha todos os campos obrigatórios.');
+        if (!fullName.trim() || !email.trim() || !password) {
+          throw new Error('Preencha todos os campos obrigatórios marcados com asterisco (*).');
         }
 
-        if (selectedRole === 'professor' && !discipline) {
+        if (password.length < 8) {
+          throw new Error('A senha deve conter no mínimo 8 caracteres para proteção da conta.');
+        }
+
+        if (password !== confirmPassword) {
+          throw new Error('A confirmação de senha não confere com a senha digitada.');
+        }
+
+        if (!discipline) {
           throw new Error('Selecione a disciplina do professor.');
         }
 
-        if (selectedRole === 'pedagoga') {
-          if (!pedagogaAccessKey.trim()) {
-            throw new Error('Informe a Senha Especial de Gestão / Pedagoga.');
-          }
-          if (pedagogaAccessKey.trim() !== PEDAGOGA_SECRET_CODE) {
-            throw new Error('Senha Especial de Gestão / Pedagoga inválida.');
-          }
+        if (!inviteCode.trim()) {
+          throw new Error('Informe o Código de Convite da Escola fornecido pela Pedagoga.');
         }
 
-        const roleToAssign: UserRole = selectedRole === 'pedagoga' ? 'pedagoga' : 'professor';
-        const discToAssign = selectedRole === 'pedagoga' ? 'Coordenação Pedagógica' : discipline;
+        // Cadastro seguro: sempre perfil 'professor' com código de convite
+        await signUp(
+          email.trim(),
+          password,
+          fullName.trim(),
+          'professor',
+          discipline,
+          phone.trim() || undefined,
+          shift,
+          undefined,
+          undefined,
+          inviteCode.trim()
+        );
 
-        await signUp(email, password, fullName, roleToAssign, discToAssign, phone);
+        setSuccessMessage(
+          'Cadastro realizado com sucesso! Para sua segurança e da escola, seu acesso foi enviado para aprovação da Pedagoga. Você receberá liberação em breve.'
+        );
+        setIsRegister(false);
+        setPassword('');
+        setConfirmPassword('');
+        setInviteCode('');
       } else {
-        await signIn(email, password);
+        await signIn(email.trim(), password);
       }
     } catch (err: any) {
       console.error(err);
-      if (err.message?.includes('rate limit')) {
-        setError('Limite de envio de e-mail do Supabase atingido. Dica: No painel do Supabase > Authentication > Providers > Email, desmarque a opção "Confirm email".');
+      if (err.message?.includes('Código de convite')) {
+        setError(err.message);
+      } else if (err.message?.includes('rate limit')) {
+        setError('Muitas tentativas em pouco tempo. Por favor, aguarde alguns instantes antes de tentar novamente.');
+      } else if (err.message?.includes('Invalid login credentials')) {
+        setError('E-mail ou senha incorretos. Verifique suas credenciais.');
+      } else if (err.message?.includes('User already registered')) {
+        setError('Este e-mail já possui cadastro. Acesse a aba "Acessar Conta" para entrar.');
       } else {
-        setError(err.message || 'Falha na autenticação. Verifique suas credenciais.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Botões de teste rápido com credenciais automáticas
-  const handleQuickLogin = async (targetRole: 'pedagoga' | 'professor') => {
-    setError(null);
-    setLoading(true);
-
-    const testEmail = targetRole === 'pedagoga' 
-      ? 'pedagoga.regina@gmail.com' 
-      : 'prof.carlos.matias@gmail.com';
-    const testPassword = 'escola-senha-segura-123';
-    const testName = targetRole === 'pedagoga' ? 'Profa. Regina (Pedagoga Geral)' : 'Prof. Carlos Eduardo';
-    const testDiscipline = targetRole === 'pedagoga' ? 'Coordenação Pedagógica' : 'Matemática';
-
-    try {
-      // Tenta login direto
-      await signIn(testEmail, testPassword);
-    } catch (signInErr: any) {
-      // Se não existir, tenta criar o usuário automaticamente
-      try {
-        await signUp(testEmail, testPassword, testName, targetRole, testDiscipline, '(11) 98765-4321');
-        await signIn(testEmail, testPassword);
-      } catch (signUpErr: any) {
-        if (signUpErr.message?.includes('rate limit')) {
-          setError('Aviso do Supabase: Limite de confirmação de e-mail atingido. No painel do Supabase > Authentication > Providers > Email, desmarque a opção "Confirm email" para liberar logins imediatos sem restrição.');
-        } else {
-          setError(signUpErr.message || 'Não foi possível autenticar o perfil de teste.');
-        }
+        setError(err.message || 'Falha na autenticação. Verifique suas credenciais ou conexão.');
       }
     } finally {
       setLoading(false);
@@ -108,16 +145,21 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100/20">
         
-        {/* Topo / Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white text-center">
-          <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm shadow-inner border border-white/20">
+        {/* Topo / Banner Institucional */}
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 p-6 text-white text-center relative overflow-hidden">
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
+          <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm shadow-inner border border-white/20">
             <GraduationCap className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight">E.M. Antônio Matias</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">E.M. Antônio Matias</h1>
           <p className="text-blue-100 text-xs mt-1">Plataforma de Gestão Pedagógica & Documentos</p>
+          <div className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 bg-white/15 backdrop-blur-sm rounded-full text-[11px] font-semibold text-blue-50 border border-white/20">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
+            <span>Acesso Escolar Restrito & Protegido</span>
+          </div>
         </div>
 
         {/* Corpo do Formulário */}
@@ -126,7 +168,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="button"
               onClick={() => { setIsRegister(false); setError(null); }}
-              className={`flex-1 pb-3 text-sm font-semibold transition-colors relative ${
+              className={`flex-1 pb-3 text-sm font-bold transition-colors relative ${
                 !isRegister ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -136,7 +178,7 @@ export const AuthModal: React.FC = () => {
             <button
               type="button"
               onClick={() => { setIsRegister(true); setError(null); }}
-              className={`flex-1 pb-3 text-sm font-semibold transition-colors relative ${
+              className={`flex-1 pb-3 text-sm font-bold transition-colors relative ${
                 isRegister ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
               }`}
             >
@@ -145,9 +187,16 @@ export const AuthModal: React.FC = () => {
             </button>
           </div>
 
+          {successMessage && (
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-start space-x-2 animate-fadeIn">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <span>{successMessage}</span>
+            </div>
+          )}
+
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl flex items-start space-x-2">
-              <span className="font-bold">•</span>
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-2xl flex items-start space-x-2 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>
           )}
@@ -157,70 +206,65 @@ export const AuthModal: React.FC = () => {
             {/* Se for cadastro */}
             {isRegister && (
               <>
-                {/* Seletor de Tipo de Perfil */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tipo de Perfil *</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRole('professor');
-                        setError(null);
-                      }}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        selectedRole === 'professor'
-                          ? 'bg-blue-50 border-blue-500 text-blue-700 ring-1 ring-blue-400'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <User className="w-3.5 h-3.5" />
-                      <span>Professor</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRole('pedagoga');
-                        setError(null);
-                      }}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
-                        selectedRole === 'pedagoga'
-                          ? 'bg-purple-50 border-purple-500 text-purple-700 ring-1 ring-purple-400'
-                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                    >
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Pedagoga / Gestão</span>
-                    </button>
+                {/* Alerta de proteção da escola */}
+                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-[11px] text-amber-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Cadastro Exclusivo para Docentes da Escola</span>
                   </div>
+                  <p className="text-amber-800">
+                    Para impedir acessos externos não autorizados, é necessário informar o <strong>Código de Convite da Escola</strong> e aguardar a aprovação da Pedagoga.
+                  </p>
                 </div>
 
+                {/* Código de Convite da Escola */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Nome Completo *</label>
+                  <label className="block text-xs font-bold text-slate-800 mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Código de Convite da Escola *</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-normal">Fornecido pela Pedagoga</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: MATIAS2026"
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                    className="w-full px-3 py-2 text-xs font-mono font-bold tracking-wider uppercase border border-blue-300 rounded-xl bg-blue-50/30 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+
+                {/* Nome Completo */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nome Completo do Professor *</label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
                       type="text"
                       required
-                      placeholder={selectedRole === 'pedagoga' ? 'Ex: Regina Célia (Pedagoga)' : 'Ex: Carlos Eduardo de Oliveira'}
+                      placeholder="Ex: Carlos Eduardo de Oliveira"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {selectedRole === 'professor' ? (
+                {/* Disciplina e Turno */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Disciplina *</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Disciplina Principal *</label>
                     <div className="relative">
-                      <BookOpen className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                      <BookOpen className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                       <select
                         required
                         value={discipline}
                         onChange={(e) => setDiscipline(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
+                        className="w-full pl-9 pr-2 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
                       >
-                        <option value="">Selecione sua disciplina...</option>
+                        <option value="">Selecione...</option>
                         {DISCIPLINE_OPTIONS.map((disc) => (
                           <option key={disc} value={disc}>
                             {disc}
@@ -229,137 +273,151 @@ export const AuthModal: React.FC = () => {
                       </select>
                     </div>
                   </div>
-                ) : (
+
                   <div>
-                    <label className="block text-xs font-semibold text-purple-900 mb-1 flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Lock className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Senha Especial de Gestão / Pedagoga *</span>
-                      </span>
-                      <span className="text-[10px] text-purple-600 font-normal">Exigida para cargo de gestão</span>
-                    </label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Turno Principal *</label>
+                    <select
+                      value={shift}
+                      onChange={(e) => setShift(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium"
+                    >
+                      <option value="Manhã">Manhã</option>
+                      <option value="Tarde">Tarde</option>
+                      <option value="Integral">Integral</option>
+                      <option value="Noite">Noite</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Telefone / WhatsApp */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Telefone / WhatsApp (Opcional)</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                     <input
-                      type="password"
-                      required
-                      placeholder="Digite a chave de segurança da gestão"
-                      value={pedagogaAccessKey}
-                      onChange={(e) => setPedagogaAccessKey(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-purple-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:outline-none bg-purple-50/40 text-purple-950 font-medium placeholder-purple-400"
+                      type="text"
+                      placeholder="Ex: (92) 98765-4321"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
                   </div>
-                )}
+                </div>
               </>
             )}
 
+            {/* E-mail */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">E-mail Institucional *</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                {isRegister ? 'E-mail para Login *' : 'E-mail Cadastrado *'}
+              </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="email"
                   required
-                  placeholder="exemplo@gmail.com"
+                  placeholder="seu.email@exemplo.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
               </div>
             </div>
 
+            {/* Senha */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Senha de Acesso *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">Senha de Acesso *</label>
+                {isRegister && (
+                  <span className="text-[10px] text-slate-500 font-medium">Mínimo 8 caracteres</span>
+                )}
+              </div>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   required
-                  placeholder="Mínimo de 6 caracteres"
+                  placeholder={isRegister ? 'Crie uma senha segura (mín. 8 caracteres)' : 'Sua senha'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full pl-9 pr-10 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition"
+                  title={showPassword ? 'Ocultar senha' : 'Ver senha'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+
+              {isRegister && password && (
+                <div className="mt-1.5 space-y-1">
+                  <div className="flex items-center justify-between text-[10px]">
+                    <span className="text-slate-500">Força da Senha:</span>
+                    <span className="font-bold text-slate-700">{passStrength.label}</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-300 ${passStrength.color}`}
+                      style={{ width: `${Math.min(100, Math.max(15, passStrength.score * 25))}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Confirmação de Senha (no cadastro) */}
+            {isRegister && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Confirmar Senha *</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Repita sua senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold text-sm rounded-xl hover:from-blue-700 hover:to-indigo-700 transition shadow-md shadow-blue-500/25 flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs rounded-xl hover:from-blue-700 hover:to-indigo-700 transition shadow-md shadow-blue-500/25 flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Conectando...</span>
+                  <span>Processando...</span>
                 </>
               ) : (
                 <>
-                  <span>{isRegister ? 'Criar Cadastro' : 'Entrar na Plataforma'}</span>
+                  <span>{isRegister ? 'Solicitar Cadastro na Escola' : 'Entrar no Sistema'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Perfis de Teste da ETAPA 4 prontos com 1 clique */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-center text-xs font-semibold text-slate-500 mb-3">
-              Perfis de Teste Rápidos (Etapa 4):
+          {/* Rodapé de Informação de Segurança */}
+          <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+            <p className="text-[11px] text-slate-500">
+              {isRegister ? (
+                <span>
+                  Após o cadastro, a Pedagoga receberá seu pedido de acesso para validação interna.
+                </span>
+              ) : (
+                <span>
+                  Ambiente seguro protegido por RLS e validação pedagógica. Não compartilhe sua senha.
+                </span>
+              )}
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('pedagoga')}
-                disabled={loading}
-                className="p-2.5 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-xl text-xs font-semibold transition text-left flex flex-col justify-between"
-              >
-                <div className="flex items-center space-x-1.5 mb-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Perfil 1: Pedagoga</span>
-                </div>
-                <span className="text-[10px] text-purple-600/80 font-normal">Controle geral & análise</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('professor')}
-                disabled={loading}
-                className="p-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl text-xs font-semibold transition text-left flex flex-col justify-between"
-              >
-                <div className="flex items-center space-x-1.5 mb-1">
-                  <User className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Perfil 2: Professor</span>
-                </div>
-                <span className="text-[10px] text-blue-600/80 font-normal">Envio próprio & pendências</span>
-              </button>
-            </div>
-
-            <div className="mt-3 pt-3 border-t border-dashed border-slate-200">
-              <p className="text-center text-[11px] font-bold text-emerald-700 mb-2">
-                Simulação Completa (18 Profs Manhã/Tarde + Inglês 1º Bim):
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => enterSimulation('pedagoga')}
-                  className="p-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold transition text-left"
-                >
-                  <div className="font-extrabold">Simular Pedagoga</div>
-                  <div className="text-[10px] text-emerald-700/80 font-normal">
-                    9 profs Manhã + 9 profs Tarde
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => enterSimulation('ingles_manha')}
-                  className="p-2.5 bg-teal-50 hover:bg-teal-100 border border-teal-200 text-teal-800 rounded-xl text-xs font-bold transition text-left"
-                >
-                  <div className="font-extrabold">Simular Prof. Inglês</div>
-                  <div className="text-[10px] text-teal-700/80 font-normal">
-                    1º Bim 100% (aulas + docs)
-                  </div>
-                </button>
-              </div>
-            </div>
           </div>
 
         </div>

@@ -20,7 +20,18 @@ interface AuthContextType {
   enterSimulation: (mode: 'pedagoga' | 'ingles_manha') => void;
   exitSimulation: () => void;
   signIn: (email: string, pass: string) => Promise<any>;
-  signUp: (email: string, pass: string, name: string, role: UserRole, disc?: string, phone?: string) => Promise<any>;
+  signUp: (
+    email: string, 
+    pass: string, 
+    name: string, 
+    role?: UserRole, 
+    disc?: string, 
+    phone?: string,
+    shift?: string,
+    birthDay?: number,
+    birthMonth?: number,
+    inviteCode?: string
+  ) => Promise<any>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -43,12 +54,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         setProfile(data as Profile);
       } else {
-        // Fallback caso o trigger do banco demore 1 instante para gravar
+        // Fallback seguro: novos usuários cadastrados começam com is_active = false
         const fallbackProfile: Profile = {
           id: userId,
           full_name: user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuário',
@@ -56,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: (user?.user_metadata?.role as UserRole) || 'professor',
           discipline: user?.user_metadata?.discipline || null,
           phone: user?.user_metadata?.phone || null,
-          is_active: true,
+          is_active: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         };
@@ -133,7 +144,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     if (user) {
+      setLoading(true);
       await fetchProfile(user.id);
+      setLoading(false);
     }
   };
 
@@ -143,8 +156,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await authService.signIn(email, pass);
   };
 
-  const signUp = async (email: string, pass: string, name: string, role: UserRole, disc?: string, phone?: string) => {
-    return await authService.signUp(email, pass, name, role, disc, phone);
+  const signUp = async (
+    email: string, 
+    pass: string, 
+    name: string, 
+    role: UserRole = 'professor', 
+    disc?: string, 
+    phone?: string,
+    shift?: string,
+    birthDay?: number,
+    birthMonth?: number,
+    inviteCode?: string
+  ) => {
+    return await authService.signUp(email, pass, name, role, disc, phone, shift, birthDay, birthMonth, inviteCode);
   };
 
   const signOut = async () => {

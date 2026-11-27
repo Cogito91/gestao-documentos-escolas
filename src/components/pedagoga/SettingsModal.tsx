@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, Settings, Plus, Trash2, Calendar as CalendarIcon, Check, Layers, Filter, Camera } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Settings, Plus, Trash2, Calendar as CalendarIcon, Check, Layers, Filter, Camera, KeyRound, ShieldCheck, Copy, CheckCheck } from 'lucide-react';
 import { DocumentCategory } from '../../types/database.types';
 import { pedagogicalService } from '../../services/pedagogicalService';
+import { authService } from '../../services/authService';
 import { formatDeadlineLabel, encodeCategoryDescription } from '../../lib/utils';
 
 interface SettingsModalProps {
@@ -34,6 +35,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [selectedBimestreTab, setSelectedBimestreTab] = useState<string>('all');
 
   const bimestresList = ['1º Bimestre', '2º Bimestre', '3º Bimestre', '4º Bimestre', 'Anual / Geral'];
+
+  // Gestão de Código de Convite da Escola
+  const [inviteCode, setInviteCode] = useState('MATIAS2026');
+  const [editInviteCode, setEditInviteCode] = useState('MATIAS2026');
+  const [isEditingInvite, setIsEditingInvite] = useState(false);
+  const [savingInvite, setSavingInvite] = useState(false);
+  const [copiedInvite, setCopiedInvite] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    authService.getSchoolInviteCode().then((code) => {
+      setInviteCode(code);
+      setEditInviteCode(code);
+    }).catch(() => {});
+  }, [isOpen]);
+
+  const handleUpdateInviteCode = async () => {
+    if (!editInviteCode.trim() || editInviteCode.trim().length < 4) {
+      alert('O código de convite deve ter no mínimo 4 caracteres.');
+      return;
+    }
+    setSavingInvite(true);
+    try {
+      await authService.updateSchoolInviteCode(editInviteCode.trim());
+      setInviteCode(editInviteCode.trim().toUpperCase());
+      setIsEditingInvite(false);
+      alert('Código de convite da escola atualizado com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao atualizar código de convite: ' + err.message);
+    } finally {
+      setSavingInvite(false);
+    }
+  };
+
+  const handleCopyInvite = () => {
+    navigator.clipboard.writeText(inviteCode);
+    setCopiedInvite(true);
+    setTimeout(() => setCopiedInvite(false), 2000);
+  };
 
   if (!isOpen) return null;
 
@@ -156,6 +196,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Conteúdo */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+
+          {/* CARD DE SEGURANÇA: CÓDIGO DE CONVITE DA ESCOLA */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-200">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">Código de Convite da Escola (Cadastro Seguro)</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Compartilhe este código apenas com os professores da escola para que consigam se cadastrar.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                Segurança Ativa
+              </span>
+            </div>
+
+            <div className="bg-white p-3 rounded-lg border border-blue-100 flex items-center justify-between gap-3 flex-wrap">
+              {!isEditingInvite ? (
+                <>
+                  <div className="flex items-center space-x-2">
+                    <KeyRound className="w-4 h-4 text-blue-600" />
+                    <span className="font-mono font-bold text-base text-blue-950 tracking-wider">
+                      {inviteCode}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={handleCopyInvite}
+                      className="px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition flex items-center space-x-1"
+                    >
+                      {copiedInvite ? (
+                        <>
+                          <CheckCheck className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700">Copiado!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copiar Código</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingInvite(true)}
+                      className="px-2.5 py-1 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition"
+                    >
+                      Alterar Código
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center space-x-2 w-full flex-wrap gap-2">
+                  <input
+                    type="text"
+                    value={editInviteCode}
+                    onChange={(e) => setEditInviteCode(e.target.value.toUpperCase())}
+                    placeholder="Novo código..."
+                    className="flex-1 min-w-[140px] px-3 py-1 text-xs font-mono font-bold uppercase border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={savingInvite}
+                    onClick={handleUpdateInviteCode}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition disabled:opacity-50"
+                  >
+                    {savingInvite ? 'Salvando...' : 'Salvar Código'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditInviteCode(inviteCode);
+                      setIsEditingInvite(false);
+                    }}
+                    className="px-3 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold text-xs rounded-lg transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           
           {/* Adicionar Novo Documento com Seleção de Bimestre e Calendário */}
           <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-200/70">

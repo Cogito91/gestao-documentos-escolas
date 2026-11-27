@@ -775,18 +775,54 @@ export const TeacherManagerModal: React.FC<TeacherManagerModalProps> = ({
                         )}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowEditProfileCard((prev) => !prev)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 shrink-0 ${
-                        showEditProfileCard
-                          ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                      }`}
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      <span>{showEditProfileCard ? 'Ocultar cadastro' : 'Alterar cadastro do professor'}</span>
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const newStatus = selectedTeacher.is_active === false;
+                          const action = newStatus ? 'aprovar e liberar' : 'bloquear';
+                          if (!confirm(`Deseja realmente ${action} o acesso do(a) professor(a) "${selectedTeacher.full_name}"?`)) return;
+                          try {
+                            await authService.setTeacherActiveStatus(selectedTeacher.id, newStatus);
+                            setSelectedTeacher({ ...selectedTeacher, is_active: newStatus });
+                            onRefresh();
+                          } catch (e: any) {
+                            alert('Erro ao atualizar status: ' + e.message);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                          selectedTeacher.is_active === false
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
+                            : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200'
+                        }`}
+                        title={selectedTeacher.is_active === false ? 'Aprovar acesso do professor' : 'Bloquear temporariamente'}
+                      >
+                        {selectedTeacher.is_active === false ? (
+                          <>
+                            <Unlock className="w-3.5 h-3.5" />
+                            <span>Aprovar Acesso</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-3.5 h-3.5" />
+                            <span>Acesso Ativo</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowEditProfileCard((prev) => !prev)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${
+                          showEditProfileCard
+                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
+                            : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                        }`}
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>{showEditProfileCard ? 'Ocultar cadastro' : 'Alterar cadastro do professor'}</span>
+                      </button>
+                    </div>
                   </div>
 
                   {showEditProfileCard && (

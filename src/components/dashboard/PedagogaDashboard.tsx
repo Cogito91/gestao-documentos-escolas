@@ -20,9 +20,14 @@ import {
   FileCheck2,
   BookOpen,
   Users,
-  Grid
+  Grid,
+  ShieldCheck,
+  UserCheck,
+  UserX,
+  Loader2
 } from 'lucide-react';
 import { SchoolDocument, Profile, DocumentCategory, DocumentStatus, Birthday } from '../../types/database.types';
+import { authService } from '../../services/authService';
 import { ReviewModal } from '../documents/ReviewModal';
 import { DocumentThumbnail } from '../documents/DocumentThumbnail';
 import { CurriculumViewModal } from '../curriculum/CurriculumViewModal';
@@ -145,6 +150,27 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
   const approvedDocs = documents.filter(d => d.status === 'aprovado').length;
   const returnedDocs = documents.filter(d => d.status === 'devolvido').length;
 
+  // Professores aguardando aprovação
+  const pendingTeachers = teachers.filter(t => t.is_active === false);
+  const [processingTeacherId, setProcessingTeacherId] = useState<string | null>(null);
+
+  const handleToggleTeacherApproval = async (teacher: Profile, shouldApprove: boolean) => {
+    const actionLabel = shouldApprove ? 'aprovar' : 'bloquear';
+    if (!confirm(`Deseja realmente ${actionLabel} o acesso do(a) professor(a) "${teacher.full_name}"?`)) {
+      return;
+    }
+
+    setProcessingTeacherId(teacher.id);
+    try {
+      await authService.setTeacherActiveStatus(teacher.id, shouldApprove);
+      onRefresh();
+    } catch (err: any) {
+      alert(`Erro ao ${actionLabel} acesso: ` + err.message);
+    } finally {
+      setProcessingTeacherId(null);
+    }
+  };
+
   // Filtragem dos documentos
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch = doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -207,7 +233,84 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Banner de Aniversariantes do Mês */}
+      {/* Banner de Solicitações de Cadastro Pendentes */}
+      {pendingTeachers.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white rounded-2xl p-4 shadow-lg border border-amber-300/40 animate-fadeIn">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <div className="flex items-center space-x-2.5">
+              <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                <ShieldCheck className="w-5 h-5 text-white animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-white">
+                  {pendingTeachers.length} Solicitaç{pendingTeachers.length === 1 ? 'ão' : 'ões'} de Cadastro Pendente{pendingTeachers.length === 1 ? '' : 's'}
+                </h3>
+                <p className="text-xs text-amber-100">
+                  Professores que se registraram e aguardam autorização da Pedagoga para acessar os dados da escola.
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-white text-amber-900 shadow-sm">
+              Segurança Ativa
+            </span>
+          </div>
+
+          <div className="space-y-2 mt-2">
+            {pendingTeachers.map((teacher) => (
+              <div 
+                key={teacher.id}
+                className="bg-white/95 text-slate-800 p-3 rounded-xl flex items-center justify-between gap-2 flex-wrap shadow-sm"
+              >
+                <div className="min-w-0">
+                  <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                    <span>{teacher.full_name}</span>
+                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                      Pendente
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>✉ {teacher.email}</span>
+                    <span>•</span>
+                    <span>📚 {teacher.discipline || 'Disciplina não informada'}</span>
+                    {teacher.phone && (
+                      <>
+                        <span>•</span>
+                        <span>📱 {teacher.phone}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={processingTeacherId === teacher.id}
+                    onClick={() => handleToggleTeacherApproval(teacher, true)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-sm transition flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {processingTeacherId === teacher.id ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <UserCheck className="w-3.5 h-3.5" />
+                    )}
+                    <span>Aprovar Acesso</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={processingTeacherId === teacher.id}
+                    onClick={() => handleToggleTeacherApproval(teacher, false)}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 active:scale-95 text-slate-600 font-semibold text-xs rounded-xl transition flex items-center gap-1 disabled:opacity-50"
+                    title="Manter bloqueado"
+                  >
+                    <UserX className="w-3.5 h-3.5" />
+                    <span>Bloquear</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {thisMonthBirthdays.length > 0 && (
         <div 
           onClick={onOpenBirthdays}
@@ -874,6 +977,32 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
                     >
                       <AlertCircle className="w-3.5 h-3.5" />
                       <span>Cobrar</span>
+                    </button>
+                  </div>
+
+                  {/* Controle de Segurança / Status de Aprovação */}
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full ${teacher.is_active !== false ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
+                      <span className="text-[11px] font-medium text-slate-600">
+                        {teacher.is_active !== false ? 'Acesso Liberado' : 'Aguardando Aprovação'}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      disabled={processingTeacherId === teacher.id}
+                      onClick={() => handleToggleTeacherApproval(teacher, teacher.is_active === false)}
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border transition ${
+                        teacher.is_active === false
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-rose-700 hover:bg-rose-50 hover:border-rose-200'
+                      }`}
+                    >
+                      {processingTeacherId === teacher.id
+                        ? 'Aguarde...'
+                        : teacher.is_active === false
+                        ? 'Aprovar Acesso'
+                        : 'Bloquear Acesso'}
                     </button>
                   </div>
                 </div>

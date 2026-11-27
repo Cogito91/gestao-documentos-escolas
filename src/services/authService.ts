@@ -24,6 +24,7 @@ export const authService = {
     }
 
     if (!data) {
+      // Fallback seguro: se não encontrar no banco, mantém is_active como false
       const fallbackProfile: Profile = {
         id: user.id,
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
@@ -31,7 +32,7 @@ export const authService = {
         role: (user.user_metadata?.role as UserRole) || 'professor',
         discipline: user.user_metadata?.discipline || null,
         phone: user.user_metadata?.phone || null,
-        is_active: true,
+        is_active: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -54,25 +55,30 @@ export const authService = {
     email: string, 
     password: string, 
     fullName: string, 
-    role: UserRole, 
+    role: UserRole = 'professor', 
     discipline?: string, 
     phone?: string,
     shift?: string,
     birthDay?: number,
-    birthMonth?: number
+    birthMonth?: number,
+    inviteCode?: string
   ) {
+    // Normaliza código de convite
+    const normalizedInvite = (inviteCode || '').trim().toUpperCase();
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName,
-          role,
+          role: 'professor', // Força papel professor para auto-cadastro
           discipline: discipline || null,
           phone: phone || null,
           shift: shift || null,
           birth_day: birthDay || null,
           birth_month: birthMonth || null,
+          invite_code: normalizedInvite,
         },
       },
     });
@@ -84,12 +90,13 @@ export const authService = {
           id: data.user.id,
           full_name: fullName,
           email,
-          role,
+          role: 'professor',
           discipline: discipline || null,
           phone: phone || null,
           shift: shift || null,
           birth_day: birthDay || null,
           birth_month: birthMonth || null,
+          is_active: false, // Novos professores iniciam inativos aguardando aprovação
         });
       } catch (upsertErr) {
         console.warn('Upsert de perfil gerenciado pelo trigger ou schema:', upsertErr);
@@ -107,7 +114,74 @@ export const authService = {
 
     if (error) {
       console.warn('Erro ao atualizar perfil do professor:', error.message);
+      throw error;
     }
+  },
+
+  async setTeacherActiveStatus(teacherId: string, isActive: boolean): Promise<void> {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ is_active: isActive })
+      .eq('id', teacherId);
+
+    if (error) {
+      console.error('Erro ao alterar status de ativação do professor:', error.message);
+      throw error;
+    }
+  },
+
+  async getSchoolInviteCode(): Promise<string> {
+    try {
+      const { data, error } = await supabase.rpc('get_school_invite_code');
+      if (!error && data) {
+        return data as string;
+      }
+    } catch (rpcErr) {
+      console.warn('RPC get_school_invite_code não disponível, tentando tabela direta:', rpcErr);
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('school_security_settings')
+        .select('invite_code')
+        .eq('id', 'default')
+        .maybeSingle();
+
+      if (!error && data?.invite_code) {
+        return data.invite_code;
+      }
+    } catch (tableErr) {
+      console.warn('Tabela school_security_settings ainda não criada:', tableErr);
+    }
+
+    // Código padrão de fallback
+    return 'MATIAS2026';
+  },
+
+  async updateSchoolInviteCode(newCode: string): Promise<void> {
+    const code = newCode.trim().toUpperCase();
+    if (code.length < 4) {
+      throw new Error('O código de convite deve ter no mínimo 4 caracteres.');
+    }
+
+    try {
+      const { error: rpcErr } = await supabase.rpc('update_school_invite_code', { new_code: code });
+      if (!rpcErr) return;
+      console.warn('RPC falhou, tentando fallback em tabela:', rpcErr.message);
+    } catch (e) {
+      console.warn('RPC update_school_invite_code não disponível:', e);
+    }
+
+    const { error } = await supabase
+      .from('school_security_settings')
+      .upsert({
+        id: 'default',
+        school_name: 'E.M. Antônio Matias',
+        invite_code: code,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) throw error;
   },
 
   async signOut() {
@@ -123,7 +197,7 @@ export const authService = {
       .order('full_name', { ascending: true });
 
     if (error) throw error;
-    return data as Profile[];
+    return (data || []) as Profile[];
   },
 
   async getPedagogas(): Promise<Profile[]> {
@@ -134,6 +208,6 @@ export const authService = {
       .order('full_name', { ascending: true });
 
     if (error) throw error;
-    return data as Profile[];
+    return (data || []) as Profile[];
   }
 };

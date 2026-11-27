@@ -4,6 +4,7 @@ import { supabase } from './lib/supabaseClient';
 import { sendBrowserNotification } from './lib/browserNotifications';
 import { Navbar } from './components/layout/Navbar';
 import { AuthModal } from './components/auth/AuthModal';
+import { PendingApprovalScreen } from './components/auth/PendingApprovalScreen';
 import { PedagogaDashboard } from './components/dashboard/PedagogaDashboard';
 import { ProfessorDashboard } from './components/dashboard/ProfessorDashboard';
 import { MessagesModal } from './components/messages/MessagesModal';
@@ -396,6 +397,17 @@ const MainApp: React.FC = () => {
       <div className="min-h-screen bg-slate-900 md:bg-slate-800 md:py-6 md:px-4 flex items-center justify-center">
         <div className="w-full max-w-[430px] min-h-screen md:min-h-[820px] md:max-h-[92vh] md:rounded-[2.5rem] md:border-[10px] md:border-slate-950 md:shadow-2xl md:overflow-y-auto bg-slate-900">
           <AuthModal />
+        </div>
+      </div>
+    );
+  }
+
+  // Se o usuário estiver autenticado porém inativo/pendente de aprovação (e não estiver em simulação), exibe tela de bloqueio
+  if (!simulationMode && profile && profile.is_active === false) {
+    return (
+      <div className="min-h-screen bg-slate-900 md:bg-slate-800 md:py-6 md:px-4 flex items-center justify-center">
+        <div className="w-full max-w-[430px] min-h-screen md:min-h-[820px] md:max-h-[92vh] md:rounded-[2.5rem] md:border-[10px] md:border-slate-950 md:shadow-2xl md:overflow-y-auto bg-slate-900">
+          <PendingApprovalScreen />
         </div>
       </div>
     );
