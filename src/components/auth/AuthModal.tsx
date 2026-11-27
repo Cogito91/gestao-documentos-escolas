@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabaseClient';
 import { 
   GraduationCap, 
   Lock, 
@@ -12,7 +13,6 @@ import {
   ShieldCheck, 
   Phone,
   AlertCircle,
-  Clock,
   Eye,
   EyeOff
 } from 'lucide-react';
@@ -144,19 +144,40 @@ export const AuthModal: React.FC = () => {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError(null);
+    setSuccessMessage(null);
+    if (!email.trim()) {
+      setError('Informe seu e-mail cadastrado acima e clique em "Esqueci minha senha" para receber o link de redefinição.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: window.location.origin + window.location.pathname,
+      });
+      if (resetErr) throw resetErr;
+      setSuccessMessage('Se o e-mail estiver cadastrado, você receberá um link para redefinir sua senha em instantes.');
+    } catch (err: any) {
+      setError(err.message || 'Não foi possível enviar o e-mail de redefinição. Procure a Coordenação Pedagógica.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-3 sm:p-4">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100/20">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden ring-1 ring-white/10">
         
         {/* Topo / Banner Institucional */}
-        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 p-6 text-white text-center relative overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 px-6 py-5 text-white text-center relative overflow-hidden">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none" />
-          <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm shadow-inner border border-white/20">
-            <GraduationCap className="w-8 h-8 text-white" />
+          <div className="w-12 h-12 bg-white/15 rounded-2xl flex items-center justify-center mx-auto mb-2.5 backdrop-blur-sm shadow-inner border border-white/20">
+            <GraduationCap className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-xl font-extrabold tracking-tight">E.M. Antônio Matias</h1>
-          <p className="text-blue-100 text-xs mt-1">Plataforma de Gestão Pedagógica & Documentos</p>
-          <div className="inline-flex items-center gap-1.5 mt-2.5 px-3 py-1 bg-white/15 backdrop-blur-sm rounded-full text-[11px] font-semibold text-blue-50 border border-white/20">
+          <p className="text-blue-100 text-xs mt-0.5">Plataforma de Gestão Pedagógica & Documentos</p>
+          <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-0.5 bg-white/15 backdrop-blur-sm rounded-full text-xs font-semibold text-blue-50 border border-white/20">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-300" />
             <span>Acesso Escolar Restrito & Protegido</span>
           </div>
@@ -164,12 +185,12 @@ export const AuthModal: React.FC = () => {
 
         {/* Corpo do Formulário */}
         <div className="p-6">
-          <div className="flex border-b border-slate-200 mb-6">
+          <div className="flex border-b border-slate-200 mb-5">
             <button
               type="button"
               onClick={() => { setIsRegister(false); setError(null); }}
               className={`flex-1 pb-3 text-sm font-bold transition-colors relative ${
-                !isRegister ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+                !isRegister ? 'text-blue-600' : 'text-slate-600 hover:text-slate-800'
               }`}
             >
               Acessar Conta
@@ -179,7 +200,7 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={() => { setIsRegister(true); setError(null); }}
               className={`flex-1 pb-3 text-sm font-bold transition-colors relative ${
-                isRegister ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'
+                isRegister ? 'text-blue-600' : 'text-slate-600 hover:text-slate-800'
               }`}
             >
               Novo Cadastro
@@ -328,8 +349,16 @@ export const AuthModal: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold text-slate-700">Senha de Acesso *</label>
-                {isRegister && (
-                  <span className="text-[10px] text-slate-500 font-medium">Mínimo 8 caracteres</span>
+                {isRegister ? (
+                  <span className="text-xs text-slate-500 font-medium">Mínimo 8 caracteres</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition"
+                  >
+                    Esqueci minha senha
+                  </button>
                 )}
               </div>
               <div className="relative">
@@ -408,47 +437,61 @@ export const AuthModal: React.FC = () => {
           {/* ACESSO RÁPIDO PARA TESTES DOS DOIS AMBIENTES (PEDAGOGA & PROFESSOR) */}
           <div className="mt-5 pt-4 border-t border-slate-100">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 <span>Acesso Imediato para Testes das Áreas:</span>
               </span>
-              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 shrink-0">
                 1 Clique
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => enterSimulation('pedagoga')}
-                className="p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 rounded-xl text-xs font-bold transition text-left flex flex-col justify-between shadow-2xs group"
+                className="p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 rounded-xl text-xs font-bold transition text-left flex flex-col justify-start items-start shadow-2xs group"
                 title="Acessar o Painel Completo da Pedagoga"
               >
                 <div className="flex items-center space-x-1.5 mb-1 text-purple-700">
-                  <ShieldCheck className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform shrink-0"
+                  >
+                    <path d="M7 4l2.5 2.5h5L17 4v4.5a6.5 6.5 0 0 1 1 3.5v4a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4v-4a6.5 6.5 0 0 1 1-3.5V4z" />
+                    <circle cx="9.5" cy="11.5" r="1.5" />
+                    <circle cx="14.5" cy="11.5" r="1.5" />
+                    <path d="M11 14l1 1.5 1-1.5z" />
+                  </svg>
                   <span className="font-extrabold">Área da Pedagoga</span>
                 </div>
-                <span className="text-[10px] text-purple-700/80 font-normal">Supervisão, 18 profs & prazos</span>
+                <span className="text-xs text-purple-700/85 font-normal">Supervisão, 18 profs & prazos</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => enterSimulation('ingles_manha')}
-                className="p-2.5 bg-gradient-to-br from-blue-50 to-teal-50 hover:from-blue-100 hover:to-teal-100 border border-blue-200 text-blue-950 rounded-xl text-xs font-bold transition text-left flex flex-col justify-between shadow-2xs group"
+                className="p-2.5 bg-gradient-to-br from-blue-50 to-teal-50 hover:from-blue-100 hover:to-teal-100 border border-blue-200 text-blue-950 rounded-xl text-xs font-bold transition text-left flex flex-col justify-start items-start shadow-2xs group"
                 title="Acessar a Área do Professor"
               >
                 <div className="flex items-center space-x-1.5 mb-1 text-blue-700">
-                  <User className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                  <User className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform shrink-0" />
                   <span className="font-extrabold">Área do Professor</span>
                 </div>
-                <span className="text-[10px] text-blue-700/80 font-normal">Diário, envio & 1º bimestre</span>
+                <span className="text-xs text-blue-700/85 font-normal">Diário, envio & 1º bimestre</span>
               </button>
             </div>
           </div>
 
           {/* Rodapé de Informação de Segurança */}
           <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-            <p className="text-[11px] text-slate-500">
+            <p className="text-xs text-slate-600">
               {isRegister ? (
                 <span>
                   Após o cadastro com o código de convite, o perfil aguarda autorização da Pedagoga.
