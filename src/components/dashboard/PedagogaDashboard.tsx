@@ -354,18 +354,10 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => onOpenTeachers()}
-            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm transition"
-          >
-            <UserPlus className="w-4 h-4 shrink-0" />
-            <span>Cadastrar Professor</span>
-          </button>
-
-          <button
-            onClick={() => onOpenTeachers()}
-            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-sm transition"
+            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2"
           >
             <Users className="w-4 h-4 shrink-0" />
-            <span>Gerir Professores</span>
+            <span>Gerir Professores & Horários</span>
           </button>
 
           <button
@@ -830,18 +822,11 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
       {activeTab === 'teachers' && (
         <div className="space-y-4">
           
-          <div className="flex flex-col-reverse gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-            <div>
-              <h3 className="font-bold text-slate-800 text-sm">Professores Registrados na Escola</h3>
-              <p className="text-xs text-slate-500">Cadastre o corpo docente e defina os horários das aulas</p>
-            </div>
-            <button
-              onClick={() => onOpenTeachers()}
-              className="w-full flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition"
-            >
-              <UserPlus className="w-4 h-4" />
-              <span>Cadastrar Professor</span>
-            </button>
+          <div className="flex flex-col gap-1 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="font-bold text-slate-800 text-sm">Professores Registrados na Escola</h3>
+            <p className="text-xs text-slate-500">
+              Os próprios professores realizam o cadastro na tela inicial; aqui você aprova acessos, gerencia turmas e define horários.
+            </p>
           </div>
 
           {/* Barra de Busca por Nome, Matéria e Turno */}
