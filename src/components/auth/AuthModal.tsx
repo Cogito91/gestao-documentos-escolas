@@ -31,7 +31,7 @@ const DISCIPLINE_OPTIONS = [
 ];
 
 export const AuthModal: React.FC = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, enterSimulation } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -405,16 +405,57 @@ export const AuthModal: React.FC = () => {
             </button>
           </form>
 
+          {/* ACESSO RÁPIDO PARA TESTES DOS DOIS AMBIENTES (PEDAGOGA & PROFESSOR) */}
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Acesso Imediato para Testes das Áreas:</span>
+              </span>
+              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                1 Clique
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => enterSimulation('pedagoga')}
+                className="p-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 rounded-xl text-xs font-bold transition text-left flex flex-col justify-between shadow-2xs group"
+                title="Acessar o Painel Completo da Pedagoga"
+              >
+                <div className="flex items-center space-x-1.5 mb-1 text-purple-700">
+                  <ShieldCheck className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+                  <span className="font-extrabold">Área da Pedagoga</span>
+                </div>
+                <span className="text-[10px] text-purple-700/80 font-normal">Supervisão, 18 profs & prazos</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => enterSimulation('ingles_manha')}
+                className="p-2.5 bg-gradient-to-br from-blue-50 to-teal-50 hover:from-blue-100 hover:to-teal-100 border border-blue-200 text-blue-950 rounded-xl text-xs font-bold transition text-left flex flex-col justify-between shadow-2xs group"
+                title="Acessar a Área do Professor"
+              >
+                <div className="flex items-center space-x-1.5 mb-1 text-blue-700">
+                  <User className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                  <span className="font-extrabold">Área do Professor</span>
+                </div>
+                <span className="text-[10px] text-blue-700/80 font-normal">Diário, envio & 1º bimestre</span>
+              </button>
+            </div>
+          </div>
+
           {/* Rodapé de Informação de Segurança */}
-          <div className="mt-6 pt-4 border-t border-slate-100 text-center">
+          <div className="mt-4 pt-3 border-t border-slate-100 text-center">
             <p className="text-[11px] text-slate-500">
               {isRegister ? (
                 <span>
-                  Após o cadastro, a Pedagoga receberá seu pedido de acesso para validação interna.
+                  Após o cadastro com o código de convite, o perfil aguarda autorização da Pedagoga.
                 </span>
               ) : (
                 <span>
-                  Ambiente seguro protegido por RLS e validação pedagógica. Não compartilhe sua senha.
+                  Para alternar entre as visões depois de entrar, utilize o botão na barra superior.
                 </span>
               )}
             </p>
