@@ -65,19 +65,14 @@ export const DocumentThumbnail: React.FC<DocumentThumbnailProps> = ({
           className="w-full h-full object-cover"
         />
       ) : isPdf ? (
-        <>
-          <iframe
-            src={`${doc.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-            title={doc.title || doc.file_name}
-            className="w-[220%] h-[220%] origin-top-left scale-[0.45] pointer-events-none border-0 bg-white"
-            tabIndex={-1}
-          />
+        <div className="w-full h-full bg-rose-50/70 flex flex-col items-center justify-center p-1 relative">
+          <FileText className="w-5 h-5 text-rose-600" />
           <span
             className={`absolute bottom-0.5 right-0.5 px-1 py-0.2 rounded text-[8px] font-extrabold leading-tight shadow ${badgeColor}`}
           >
             PDF
           </span>
-        </>
+        </div>
       ) : (
         <div className="w-full h-full bg-slate-50 flex flex-col items-center justify-center p-1 relative">
           {/* Mini folha simulada */}

@@ -115,21 +115,21 @@ export const Navbar: React.FC<NavbarProps> = ({
         <div className="flex justify-between h-14 sm:h-16 items-center gap-2">
           
           {/* Botão Menu Lateral Esquerdo + Logo */}
-          <div className="flex items-center space-x-2 min-w-0">
+          <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => setIsDrawerOpen(true)}
-              className={`p-2 -ml-1 rounded-xl text-slate-700 hover:bg-slate-100 active:scale-95 transition shrink-0 ${mobilePreview ? '' : 'lg:hidden'}`}
+              className={`p-1.5 sm:p-2 -ml-1 rounded-xl text-slate-700 hover:bg-slate-100 active:scale-95 transition shrink-0 ${mobilePreview ? '' : 'lg:hidden'}`}
               title="Abrir Menu"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-sm shrink-0">
               <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div className="min-w-0">
-              <span className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight truncate block">E.M. Antônio Matias</span>
-              <p className="text-[10px] sm:text-[11px] text-slate-500 truncate">Gestão Pedagógica</p>
+              <span className="font-extrabold text-[13px] sm:text-base text-slate-900 tracking-tight whitespace-nowrap block">E.M. Antônio Matias</span>
+              <p className="text-[10px] sm:text-[11px] text-slate-500 whitespace-nowrap">Gestão Pedagógica</p>
             </div>
           </div>
 

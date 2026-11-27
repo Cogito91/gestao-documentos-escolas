@@ -538,7 +538,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
       )}
 
       {/* Cabeçalho Clean com Ações Principais */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="shrink-0">
             <div className="flex items-center space-x-2">
@@ -619,98 +619,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
             </button>
           </div>
         </div>
-
-        {/* Área de Atividades Programadas para as Turmas na Semana */}
-        <div className="mt-5 pt-4 border-t border-slate-100">
-          <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/60 to-purple-50/70 border border-indigo-100 rounded-2xl p-4 sm:p-5 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-xs">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm sm:text-base font-extrabold text-slate-800">
-                    Você tem atividades agendadas para as turmas:
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Atividades e avaliações agendadas para aplicação em sala
-                  </p>
-                </div>
-              </div>
-
-              {scheduledMatrizActivities.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setIsScheduledActivitiesModalOpen(true)}
-                  className="text-xs font-bold text-indigo-700 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 shadow-2xs hover:bg-indigo-50 transition flex items-center gap-1"
-                >
-                  <span>Ver todas ({scheduledMatrizActivities.length})</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Lista exatamente no formato do card: Tag MINHA ATIVIDADE / AVALIAÇÃO + Data + Atividade + Turma + Excluir */}
-            <div className="space-y-2.5">
-              {scheduledMatrizActivities.length > 0 ? (
-                scheduledMatrizActivities.slice(0, 4).map((act) => {
-                  const formattedDate = act.date ? act.date.split('T')[0].split('-').reverse().join('/') : '';
-                  const isAssessment = act.type === 'assessment';
-
-                  return (
-                    <div
-                      key={act.id}
-                      className="p-3.5 bg-white rounded-2xl border border-blue-200/90 shadow-2xs hover:border-indigo-300 transition space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
-                          isAssessment
-                            ? 'bg-indigo-100 text-indigo-800 border-indigo-200'
-                            : 'bg-emerald-100 text-emerald-900 border-emerald-200'
-                        }`}>
-                          {isAssessment ? 'MINHA AVALIAÇÃO' : 'MINHA ATIVIDADE'}
-                        </span>
-                        {formattedDate && (
-                          <span className="text-[11px] font-extrabold text-slate-700 flex items-center gap-1 font-mono">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{formattedDate}</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 leading-snug">
-                        {isAssessment ? 'Avaliação: ' : 'Atividade: '}
-                        <span className="text-indigo-950">{act.title}</span>
-                      </h4>
-
-                      {act.details && (
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {act.details}
-                        </p>
-                      )}
-
-                      <div className="pt-1.5 flex items-center justify-end border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteScheduledMatrizItem(act.id, act.type)}
-                          className="text-xs text-slate-400 hover:text-rose-600 flex items-center gap-1 transition"
-                          title="Remover agendamento"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>Excluir</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="bg-white/80 p-4 rounded-xl border border-slate-200 text-center text-xs text-slate-500">
-                  Nenhuma atividade agendada no momento. Agende avaliações ou atividades pelo botão <strong>"Matriz Curricular"</strong>.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Seletor de Bimestre + Navegação Simples por Abas */}
@@ -734,8 +642,8 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-b border-slate-200 gap-4">
-        <div className="flex items-center space-x-5 overflow-x-auto no-scrollbar">
+        <div className="w-full border-b border-slate-200">
+        <div className="flex items-center space-x-5 overflow-x-auto no-scrollbar w-full">
           <button
             onClick={() => setActiveView('todo')}
             className={`pb-3 text-sm font-semibold border-b-2 transition flex items-center space-x-2 whitespace-nowrap ${
@@ -979,7 +887,7 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
                         )}
                         <button
                           onClick={() => openUploadFor(cat)}
-                          className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:text-blue-700 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition"
                         >
                           Novo Envio
                         </button>
@@ -1968,21 +1876,6 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
         schedules={schedules}
         teacherDiscipline={profile?.discipline}
       />
-
-      {/* Estrelinha Fixada no Canto da Tela quando o Professor está Em Dia */}
-      {isUpToDate && (
-        <button
-          type="button"
-          onClick={() => setShowStarCelebration(true)}
-          title="Você está em dia! Todos os documentos do bimestre foram enviados."
-          className="fixed bottom-5 right-5 z-40 flex items-center space-x-2 px-3.5 py-2.5 bg-white/95 backdrop-blur-sm border border-amber-200 rounded-full shadow-lg shadow-amber-500/15 hover:scale-105 transition-transform"
-        >
-          <span className="relative flex items-center justify-center">
-            <Star className="w-5 h-5 fill-amber-400 text-amber-500 drop-shadow-sm" />
-          </span>
-          <span className="text-xs font-bold text-amber-800">Em dia</span>
-        </button>
-      )}
 
       {/* Animação de Estrelinha ao Enviar o Último Documento */}
       {showStarCelebration && (
