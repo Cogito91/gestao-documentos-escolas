@@ -42,6 +42,15 @@ import { Loader2, AlertCircle } from 'lucide-react';
 
 const MainApp: React.FC = () => {
   const { user, profile, loading: authLoading, simulationMode } = useAuth();
+  const [mobilePreview, setMobilePreview] = useState(() => sessionStorage.getItem('app_mobile_preview') === '1');
+  const toggleMobilePreview = () => {
+    setMobilePreview((prev) => {
+      const next = !prev;
+      if (next) sessionStorage.setItem('app_mobile_preview', '1');
+      else sessionStorage.removeItem('app_mobile_preview');
+      return next;
+    });
+  };
 
   const [documents, setDocuments] = useState<SchoolDocument[]>([]);
   const [categories, setCategories] = useState<DocumentCategory[]>([]);
@@ -393,35 +402,37 @@ const MainApp: React.FC = () => {
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-900 md:bg-slate-800 md:py-6 md:px-4 flex items-center justify-center">
-        <div className="w-full max-w-[430px] min-h-screen md:min-h-[820px] md:max-h-[92vh] md:rounded-[2.5rem] md:border-[10px] md:border-slate-950 md:shadow-2xl md:overflow-y-auto bg-slate-900">
-          <AuthModal />
-        </div>
-      </div>
-    );
+    return <AuthModal />;
   }
 
   // Se o usuário estiver autenticado porém inativo/pendente de aprovação (e não estiver em simulação), exibe tela de bloqueio
   if (!simulationMode && profile && profile.is_active === false) {
-    return (
-      <div className="min-h-screen bg-slate-900 md:bg-slate-800 md:py-6 md:px-4 flex items-center justify-center">
-        <div className="w-full max-w-[430px] min-h-screen md:min-h-[820px] md:max-h-[92vh] md:rounded-[2.5rem] md:border-[10px] md:border-slate-950 md:shadow-2xl md:overflow-y-auto bg-slate-900">
-          <PendingApprovalScreen />
-        </div>
-      </div>
-    );
+    return <PendingApprovalScreen />;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 md:bg-slate-800 md:py-6 md:px-4 flex justify-center">
-      <div className="w-full max-w-[430px] min-h-screen md:min-h-[820px] md:max-h-[92vh] md:rounded-[2.5rem] md:border-[10px] md:border-slate-950 md:shadow-2xl md:overflow-y-auto overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col relative">
+    <div
+      className={
+        mobilePreview
+          ? 'min-h-screen bg-slate-800 py-6 px-4 flex justify-center'
+          : 'min-h-screen bg-slate-50 text-slate-800 flex flex-col'
+      }
+    >
+      <div
+        className={
+          mobilePreview
+            ? 'w-full max-w-[430px] min-h-[820px] max-h-[92vh] rounded-[2.5rem] border-[10px] border-slate-950 shadow-2xl overflow-y-auto overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col relative'
+            : 'w-full min-h-screen overflow-x-hidden bg-slate-50 text-slate-800 flex flex-col relative'
+        }
+      >
       
       {/* Barra de Navegação Superior */}
       <Navbar
         notifications={notifications}
         unreadMessagesCount={unreadMessagesCount}
         birthdaysCountThisMonth={birthdaysThisMonth}
+        mobilePreview={mobilePreview}
+        onToggleMobilePreview={toggleMobilePreview}
         onOpenMessages={() => {
           setTargetMessageUser(null);
           setIsMessagesOpen(true);
@@ -461,7 +472,7 @@ const MainApp: React.FC = () => {
       )}
 
       {/* Conteúdo Principal */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`flex-1 w-full mx-auto ${mobilePreview ? 'px-3 py-5' : 'max-w-7xl px-3 sm:px-6 lg:px-8 py-5 sm:py-8'}`}>
         {loadingData ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-2" />

@@ -538,11 +538,11 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
       )}
 
       {/* Cabeçalho Clean com Ações Principais */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-6 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="shrink-0">
             <div className="flex items-center space-x-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                 Olá, {firstName}
               </h1>
               {isUpToDate && (
@@ -560,41 +560,41 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full lg:max-w-2xl">
             <button
               onClick={() => setIsDiarioDeBordoOpen(true)}
-              className="px-2 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-950 font-extrabold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs col-span-2"
+              className="px-3 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border border-emerald-300 text-emerald-950 font-extrabold text-xs leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs col-span-2 sm:col-span-1"
               title="Diário de Bordo: registre o que foi dado em cada turma e planeje as próximas aulas"
             >
               <NotebookPen className="w-4 h-4 text-emerald-700 shrink-0" />
-              <span>Diário de Bordo</span>
+              <span className="truncate">Diário de Bordo</span>
             </button>
 
             <button
               onClick={() => setIsClassroomMappingOpen(true)}
-              className="px-2 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 font-bold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs col-span-2"
+              className="px-3 py-2.5 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 border border-purple-200 text-purple-900 font-bold text-xs leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs col-span-2 sm:col-span-1"
               title="Mapeamento de Sala de Aula e Carteiras dos Alunos"
             >
               <Grid className="w-4 h-4 text-purple-700 shrink-0" />
-              <span>Mapeamento de Sala (Carteiras & Regência)</span>
+              <span className="truncate">Mapa de Sala</span>
             </button>
 
             <button
               onClick={() => setIsCurriculumModalOpen(true)}
-              className="px-2 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 text-blue-800 font-bold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs"
+              className="px-3 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border border-blue-200 text-blue-800 font-bold text-xs leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs"
               title="Consultar Matriz Curricular SEMED da sua disciplina"
             >
               <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>Matriz Curricular</span>
+              <span className="truncate">Matriz SEMED</span>
             </button>
 
             <button
               onClick={() => setIsTeacherCalendarOpen(true)}
-              className="px-2 py-2.5 bg-gradient-to-r from-sky-50 to-teal-50 hover:from-sky-100 hover:to-teal-100 border border-sky-200 text-sky-900 font-bold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs"
+              className="px-3 py-2.5 bg-gradient-to-r from-sky-50 to-teal-50 hover:from-sky-100 hover:to-teal-100 border border-sky-200 text-sky-900 font-bold text-xs leading-tight rounded-xl transition flex items-center justify-center space-x-1.5 shadow-xs"
               title="Visualizar Meu Calendário: datas de entrega pendentes e suas avaliações/atividades"
             >
               <Calendar className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-              <span>Meu Calendário</span>
+              <span className="truncate">Calendário</span>
               {pendingCategories.length > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-rose-500 text-white shadow-2xs shrink-0">
                   {pendingCategories.length}
@@ -604,18 +604,18 @@ export const ProfessorDashboard: React.FC<ProfessorDashboardProps> = ({
 
             <button
               onClick={() => setShowScheduleModal(true)}
-              className="px-2 py-2.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-[11px] leading-tight rounded-xl transition flex items-center justify-center space-x-1.5"
+              className="px-3 py-2.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold text-xs leading-tight rounded-xl transition flex items-center justify-center space-x-1.5"
             >
               <Clock className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-              <span>Meus Horários</span>
+              <span className="truncate">Meus Horários</span>
             </button>
 
             <button
               onClick={() => openUploadFor(null)}
-              className="px-2 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[11px] leading-tight rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5"
+              className="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs leading-tight rounded-xl shadow-sm transition flex items-center justify-center space-x-1.5"
             >
               <UploadCloud className="w-3.5 h-3.5 shrink-0" />
-              <span>Enviar Documento</span>
+              <span className="truncate">Enviar Documento</span>
             </button>
           </div>
         </div>

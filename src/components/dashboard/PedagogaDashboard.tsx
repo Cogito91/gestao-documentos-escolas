@@ -351,27 +351,27 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">Acompanhamento de quem já enviou e o que falta enviar no bimestre</p>
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           <button
             onClick={() => onOpenTeachers()}
-            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2"
+            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2 sm:col-span-1"
           >
             <Users className="w-4 h-4 shrink-0" />
-            <span>Gerir Professores & Horários</span>
+            <span className="truncate">Professores & Horários</span>
           </button>
 
           <button
             onClick={() => setIsClassroomMappingOpen(true)}
-            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-gradient-to-r from-indigo-700 to-blue-700 hover:from-indigo-800 hover:to-blue-800 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2"
+            className="flex items-center justify-center space-x-1.5 px-3 py-2.5 bg-gradient-to-r from-indigo-700 to-blue-700 hover:from-indigo-800 hover:to-blue-800 text-white font-bold text-xs rounded-xl shadow-sm transition col-span-2 sm:col-span-2 lg:col-span-1"
             title="Mapeamento de Sala de Aula: definir fileiras, carteiras e indicar professor regente"
           >
             <Grid className="w-4 h-4 text-sky-300 shrink-0" />
-            <span>Mapeamento de Sala & Regentes (Definir Regentes)</span>
+            <span className="truncate">Mapa de Sala & Regentes</span>
           </button>
 
           <button
             onClick={() => setIsCurriculumModalOpen(true)}
-            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-[11px] rounded-xl border border-blue-200 transition"
+            className="flex items-center justify-center space-x-1.5 px-2.5 py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl border border-blue-200 transition"
           >
             <BookOpen className="w-3.5 h-3.5 text-blue-600 shrink-0" />
             <span className="truncate">Matriz SEMED</span>
@@ -379,24 +379,24 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
 
           <button
             onClick={onOpenSettings}
-            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-[11px] rounded-xl border border-purple-200 transition"
+            className="flex items-center justify-center space-x-1.5 px-2.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs rounded-xl border border-purple-200 transition"
           >
             <Settings className="w-3.5 h-3.5 text-purple-600 shrink-0" />
-            <span className="truncate">Prazos Finais</span>
+            <span className="truncate">Prazos & Convite</span>
           </button>
 
           <button
             onClick={onOpenCalendar}
-            className="flex items-center justify-center space-x-1.5 px-2.5 py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 font-semibold text-[11px] rounded-xl border border-sky-200 transition col-span-2"
+            className="flex items-center justify-center space-x-1.5 px-2.5 py-2.5 bg-sky-50 hover:bg-sky-100 text-sky-700 font-semibold text-xs rounded-xl border border-sky-200 transition col-span-2 sm:col-span-1"
           >
             <Calendar className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-            <span>Calendário Escolar</span>
+            <span className="truncate">Calendário Escolar</span>
           </button>
         </div>
       </div>
 
-      {/* Cards de Resumo (Mobile-First: Empilhados com respiro) */}
-      <div className="grid grid-cols-1 gap-2.5">
+      {/* Cards de Resumo Responsivos */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Entregas de {currentMonthLabel}</p>
@@ -431,8 +431,8 @@ export const PedagogaDashboard: React.FC<PedagogaDashboardProps> = ({
         </div>
       </div>
 
-      {/* Navegação entre Abas (Empilhada verticalmente para mobile) */}
-      <div className="flex flex-col space-y-2 border-b border-slate-200 pb-2">
+      {/* Navegação entre Abas Responsiva */}
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-5 gap-y-2 border-b border-slate-200 overflow-x-auto">
         <button
           onClick={() => setActiveTab('inadimplentes')}
           className={`pb-3 text-xs sm:text-sm font-bold transition-colors relative flex items-center space-x-1.5 whitespace-nowrap ${
